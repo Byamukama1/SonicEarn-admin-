@@ -48,99 +48,103 @@
     </button>
   </div>  <div id="deposits"></div>
   <hr>
-  <div id="withdraws"></div>  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import {
-      getFirestore, collection, getDocs, doc, updateDoc, query, where
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  <div id="withdraws"></div> 
+  
+  
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore, collection, getDocs, doc, updateDoc, query, where
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
-      authDomain: "sonicearn-a13b3.firebaseapp.com",
-      projectId: "sonicearn-a13b3",
-      storageBucket: "sonicearn-a13b3.appspot.com",
-      messagingSenderId: "538538743721",
-      appId: "1:538538743721:web:3ca577a8b2a6ba43e416b8"
-    };
+  const firebaseConfig = {
+    apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
+    authDomain: "sonicearn-a13b3.firebaseapp.com",
+    projectId: "sonicearn-a13b3",
+    storageBucket: "sonicearn-a13b3.appspot.com",
+    messagingSenderId: "538538743721",
+    appId: "1:538538743721:web:3ca577a8b2a6ba43e416b8"
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
 
-    const depositsDiv = document.getElementById("deposits");
-    const withdrawsDiv = document.getElementById("withdraws");
+  const depositsDiv = document.getElementById("deposits");
+  const withdrawsDiv = document.getElementById("withdraws");
 
-    async function loadPending() {
-      const depositQuery = query(collection(db, "deposits"), where("status", "==", "Pending"));
-      const withdrawQuery = query(collection(db, "withdraws"), where("status", "==", "Pending"));
-      const depositSnapshot = await getDocs(depositQuery);
-      const withdrawSnapshot = await getDocs(withdrawQuery);
+  async function loadPending() {
+    const depositQuery = query(collection(db, "deposits"), where("status", "==", "Pending"));
+    const withdrawQuery = query(collection(db, "withdraws"), where("status", "==", "Pending"));
+    const depositSnapshot = await getDocs(depositQuery);
+    const withdrawSnapshot = await getDocs(withdrawQuery);
 
-      depositsDiv.innerHTML = '<h3>Pending Deposits</h3>';
-      depositSnapshot.forEach(docSnap => {
-        const d = docSnap.data();
-        depositsDiv.innerHTML += `
-          <div class="card">
-            <h4>${d.name} (${d.phone})</h4>
-            <p>Amount: UGX ${d.amount}</p>
-            <button class="btn approve" onclick="approveDeposit('${docSnap.id}', '${d.userId}', ${d.amount})">Approve</button>
-            <button class="btn reject" onclick="reject('deposits', '${docSnap.id}')">Reject</button>
-          </div>`;
-      });
+    depositsDiv.innerHTML = '<h3>Pending Deposits</h3>';
+    depositSnapshot.forEach(docSnap => {
+      const d = docSnap.data();
+      depositsDiv.innerHTML += `
+        <div class="card">
+          <h4>${d.name} (${d.phone})</h4>
+          <p>Amount: UGX ${d.amount}</p>
+          <button class="btn approve" onclick="approveDeposit('${docSnap.id}', '${d.userId}', ${d.amount})">Approve</button>
+          <button class="btn reject" onclick="reject('deposits', '${docSnap.id}')">Reject</button>
+        </div>`;
+    });
 
-      withdrawsDiv.innerHTML = '<h3>Pending Withdrawals</h3>';
-      withdrawSnapshot.forEach(docSnap => {
-        const d = docSnap.data();
-        withdrawsDiv.innerHTML += `
-          <div class="card">
-            <h4>${d.holderName} (${d.phoneNumber})</h4>
-            <p>Amount: UGX ${d.amount}</p>
-            <button class="btn approve" onclick="approveWithdraw('${docSnap.id}', '${d.userId}', ${d.amount})">Approve</button>
-            <button class="btn reject" onclick="reject('withdraws', '${docSnap.id}')">Reject</button>
-          </div>`;
-      });
+    withdrawsDiv.innerHTML = '<h3>Pending Withdrawals</h3>';
+    withdrawSnapshot.forEach(docSnap => {
+      const d = docSnap.data();
+      withdrawsDiv.innerHTML += `
+        <div class="card">
+          <h4>${d.holderName} (${d.phoneNumber})</h4>
+          <p>Amount: UGX ${d.amount}</p>
+          <button class="btn approve" onclick="approveWithdraw('${docSnap.id}', '${d.userId}', ${d.amount})">Approve</button>
+          <button class="btn reject" onclick="reject('withdraws', '${docSnap.id}')">Reject</button>
+        </div>`;
+    });
+  }
+
+  window.approveDeposit = async (id, userId, amount) => {
+    await updateDoc(doc(db, "deposits", id), { status: "Paid" });
+
+    const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
+    const userDoc = userSnap.docs[0];
+
+    if (userDoc) {
+      const userData = userDoc.data();
+      const totalDeposits = (userData.totalDeposits || 0) + amount;
+      const uninvested = (userData.uninvestedDeposit || 0) + amount;
+
+      await updateDoc(userDoc.ref, { totalDeposits, uninvestedDeposit: uninvested });
     }
 
-    window.approveDeposit = async (id, userId, amount) => {
-      await updateDoc(doc(db, "deposits", id), { status: "Paid" });
+    alert("Deposit approved.");
+    location.reload();
+  };
 
-      const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
-      const userDoc = userSnap.docs[0];
+  window.approveWithdraw = async (id, userId, amount) => {
+    await updateDoc(doc(db, "withdraws", id), { status: "Paid" });
 
-      if (userDoc) {
-        const userData = userDoc.data();
-        const totalDeposits = (userData.totalDeposits || 0) + amount;
-        const uninvested = (userData.uninvestedDeposit || 0) + amount;
+    const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
+    const userDoc = userSnap.docs[0];
 
-        await updateDoc(userDoc.ref, { totalDeposits, uninvestedDeposit: uninvested });
-      }
+    if (userDoc) {
+      const data = userDoc.data();
+      const totalWithdrawn = (data.totalWithdrawn || 0) + amount;
 
-      alert("Deposit approved.");
-      location.reload();
-    };
+      await updateDoc(userDoc.ref, { totalWithdrawn });
+    }
 
-    window.approveWithdraw = async (id, userId, amount) => {
-      await updateDoc(doc(db, "withdraws", id), { status: "Paid" });
+    alert("Withdraw approved.");
+    location.reload();
+  };
 
-      const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
-      const userDoc = userSnap.docs[0];
+  window.reject = async (col, id) => {
+    await updateDoc(doc(db, col, id), { status: "Rejected" });
+    alert("Marked as Rejected.");
+    location.reload();
+  };
 
-      if (userDoc) {
-        const data = userDoc.data();
-        const totalWithdrawn = (data.totalWithdrawn || 0) + amount;
-        const accountBalance = (data.accountBalance || 0) - amount;
-        await updateDoc(userDoc.ref, { totalWithdrawn, accountBalance });
-      }
-
-      alert("Withdraw approved.");
-      location.reload();
-    };
-
-    window.reject = async (col, id) => {
-      await updateDoc(doc(db, col, id), { status: "Rejected" });
-      alert("Marked as Rejected.");
-      location.reload();
-    };
-
-    loadPending();
-  </script></body>
+  loadPending();
+</script>
+</body>
 </html>
