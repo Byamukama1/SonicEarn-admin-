@@ -59,6 +59,7 @@
 <hr>
 <div id="withdraws"></div>
 
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -81,7 +82,6 @@ const db = getFirestore(app);
 const depositsDiv = document.getElementById("deposits");
 const withdrawsDiv = document.getElementById("withdraws");
 
-// Load pending deposits and withdraws
 async function loadPending() {
   const depositQuery = query(collection(db, "deposits"), where("status", "==", "Pending"));
   const withdrawQuery = query(collection(db, "withdraws"), where("status", "==", "Pending"));
@@ -113,7 +113,6 @@ async function loadPending() {
   });
 }
 
-// Approve deposit with referral bonus
 window.approveDeposit = async (id, userId, amount) => {
   await updateDoc(doc(db, "deposits", id), { status: "Paid" });
 
@@ -124,11 +123,13 @@ window.approveDeposit = async (id, userId, amount) => {
     const userData = userDoc.data();
     const totalDeposits = (userData.totalDeposits || 0) + amount;
     const uninvested = (userData.uninvestedDeposit || 0) + amount;
+
     await updateDoc(userDoc.ref, { totalDeposits, uninvestedDeposit: uninvested });
 
-    const referrerId = userData.referrerId;
-    if (referrerId) {
-      const refSnap = await getDocs(query(collection(db, "users"), where("userId", "==", referrerId)));
+    const referrerPhone = userData.referrerPhone;
+
+    if (referrerPhone) {
+      const refSnap = await getDocs(query(collection(db, "users"), where("phone", "==", referrerPhone)));
       const refDoc = refSnap.docs[0];
 
       if (refDoc) {
@@ -155,7 +156,6 @@ window.approveDeposit = async (id, userId, amount) => {
   location.reload();
 };
 
-// Approve withdraw
 window.approveWithdraw = async (id, userId, amount) => {
   await updateDoc(doc(db, "withdraws", id), { status: "Paid" });
   const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
@@ -170,7 +170,6 @@ window.approveWithdraw = async (id, userId, amount) => {
   location.reload();
 };
 
-// Reject deposit or withdraw
 window.reject = async (col, id) => {
   await updateDoc(doc(db, col, id), { status: "Rejected" });
   alert("Marked as Rejected.");
