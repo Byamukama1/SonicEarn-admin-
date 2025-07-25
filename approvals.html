@@ -1,0 +1,180 @@
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Approvals - Admins</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f6f9;
+      padding: 20px;
+    }
+    h2, h3 {
+      text-align: center;
+      color: #2a8c4a;
+    }
+    .admin-note {
+      background: #e9f7ef;
+      border-left: 4px solid #2a8c4a;
+      padding: 10px;
+      margin-bottom: 20px;
+      border-radius: 6px;
+      color: #333;
+    }
+    .section {
+      margin-top: 30px;
+    }
+    .record {
+      background: #fff;
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .record p {
+      margin: 0;
+      font-size: 14px;
+    }
+    .admin-check {
+      display: flex;
+      gap: 10px;
+    }
+    .summary {
+      background: #fff3cd;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <h2>Admin Approval Tracker</h2>
+  <div class="admin-note">
+    <p>This page helps admins <strong>Emily</strong> and <strong>Silver</strong> track who approved each deposit and withdrawal.</p>
+    <p>Admins should <strong>tick their name</strong> to mark who received or approved the transaction.</p>
+    <p><strong>Note:</strong> Withdraw amount is shown after deducting 10% fee. Company earnings = Total deposits - Total withdrawn.</p>
+  </div>  <div class="section">
+    <h3>✅ Paid Deposits</h3>
+    <div id="paidDeposits"></div>
+  </div>  <div class="section">
+    <h3>✅ Paid Withdrawals</h3>
+    <div id="paidWithdrawals"></div>
+  </div>  <div class="summary">
+    <p><strong>Total Paid Deposits:</strong> UGX <span id="totalDeposits">0</span></p>
+    <p><strong>Total Withdrawals (After 10%):</strong> UGX <span id="totalWithdraws">0</span></p>
+    <p><strong>💼 Company Earnings:</strong> UGX <span id="companyEarnings">0</span></p>
+  </div>  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore, collection, getDocs, query, where, doc, setDoc, addDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
+      authDomain: "sonicearn-a13b3.firebaseapp.com",
+      projectId: "sonicearn-a13b3",
+      storageBucket: "sonicearn-a13b3.appspot.com",
+      messagingSenderId: "538538743721",
+      appId: "1:538538743721:web:3ca577a8b2a6ba43e416b8"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let totalDeposits = 0;
+    let totalWithdrawals = 0;
+
+    async function fetchApprovalsMap() {
+      const approvalSnapshot = await getDocs(collection(db, "approvals"));
+      const map = {};
+      approvalSnapshot.forEach(docSnap => {
+        const a = docSnap.data();
+        const key = `${a.transactionType}_${a.transactionId}`;
+        if (!map[key]) map[key] = {};
+        map[key][a.approvedBy] = true;
+      });
+      return map;
+    }
+
+    async function renderRecords() {
+      const approvalsMap = await fetchApprovalsMap();
+      await renderDeposits(approvalsMap);
+      await renderWithdrawals(approvalsMap);
+      updateSummary();
+    }
+
+    async function renderDeposits(approvalsMap) {
+      const q = query(collection(db, "deposits"), where("status", "==", "Paid"));
+      const snapshot = await getDocs(q);
+      const container = document.getElementById("paidDeposits");
+      container.innerHTML = "";
+      snapshot.forEach(docSnap => {
+        const d = docSnap.data();
+        const id = docSnap.id;
+        totalDeposits += d.amount;
+        const key = `deposit_${id}`;
+        const approved = approvalsMap[key] || {};
+
+        const div = document.createElement("div");
+        div.className = "record";
+        div.innerHTML = `
+          <p><strong>${d.name}</strong> (${d.phone}) - UGX ${d.amount.toLocaleString()}</p>
+          <div class="admin-check">
+            <label><input type="checkbox" ${approved["Emily"] ? "checked disabled" : ""} onclick="handleApproval('${id}', 'deposit', 'Emily', this)"> Emily</label>
+            <label><input type="checkbox" ${approved["Silver"] ? "checked disabled" : ""} onclick="handleApproval('${id}', 'deposit', 'Silver', this)"> Silver</label>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function renderWithdrawals(approvalsMap) {
+      const q = query(collection(db, "withdraws"), where("status", "==", "Paid"));
+      const snapshot = await getDocs(q);
+      const container = document.getElementById("paidWithdrawals");
+      container.innerHTML = "";
+      snapshot.forEach(docSnap => {
+        const w = docSnap.data();
+        const id = docSnap.id;
+        const net = Math.floor(w.amount * 0.9);
+        totalWithdrawals += net;
+        const key = `withdraw_${id}`;
+        const approved = approvalsMap[key] || {};
+
+        const div = document.createElement("div");
+        div.className = "record";
+        div.innerHTML = `
+          <p><strong>${w.holderName}</strong> (${w.phoneNumber}) - UGX ${net.toLocaleString()} <small>(after 10%)</small></p>
+          <div class="admin-check">
+            <label><input type="checkbox" ${approved["Emily"] ? "checked disabled" : ""} onclick="handleApproval('${id}', 'withdraw', 'Emily', this)"> Emily</label>
+            <label><input type="checkbox" ${approved["Silver"] ? "checked disabled" : ""} onclick="handleApproval('${id}', 'withdraw', 'Silver', this)"> Silver</label>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function updateSummary() {
+      document.getElementById("totalDeposits").textContent = totalDeposits.toLocaleString();
+      document.getElementById("totalWithdraws").textContent = totalWithdrawals.toLocaleString();
+      document.getElementById("companyEarnings").textContent = (totalDeposits - totalWithdrawals).toLocaleString();
+    }
+
+    window.handleApproval = async (transactionId, transactionType, approvedBy, checkbox) => {
+      checkbox.disabled = true;
+      const docId = `${transactionType}_${transactionId}_${approvedBy}`;
+      await setDoc(doc(db, "approvals", docId), {
+        transactionId,
+        transactionType,
+        approvedBy,
+        timestamp: new Date()
+      });
+    }
+
+    renderRecords();
+  </script></body>
+</html>
