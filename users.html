@@ -22,6 +22,7 @@
       padding: 15px;
       margin-bottom: 15px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      position: relative;
     }
     .user-card h4 {
       margin: 0 0 10px;
@@ -32,6 +33,21 @@
       font-size: 14px;
       color: #555;
     }
+    .delete-btn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .delete-btn:hover {
+      background-color: #c0392b;
+    }
   </style>
 </head>
 <body>
@@ -41,7 +57,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
-      getFirestore, collection, getDocs
+      getFirestore, collection, getDocs, deleteDoc, doc
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -55,21 +71,23 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-
     const userList = document.getElementById("userList");
 
     async function loadUsers() {
       const snapshot = await getDocs(collection(db, "users"));
       userList.innerHTML = "";
 
-      snapshot.forEach(doc => {
-        const u = doc.data();
+      snapshot.forEach(docSnap => {
+        const u = docSnap.data();
+        const docId = docSnap.id;
+
         const card = document.createElement("div");
         card.className = "user-card";
         card.innerHTML = `
+          <button class="delete-btn" onclick="deleteUser('${docId}')">Delete</button>
           <h4>${u.name || "No Name"} (${u.phone || "No Phone"})</h4>
           <p><strong>Email:</strong> ${u.email || "N/A"}</p>
-          <p><strong>User ID:</strong> ${u.userId || doc.id}</p>
+          <p><strong>User ID:</strong> ${u.userId || docId}</p>
           <p><strong>Total Earnings:</strong> UGX ${(u.totalEarnings || 0).toLocaleString()}</p>
           <p><strong>Total Withdrawn:</strong> UGX ${(u.totalWithdrawn || 0).toLocaleString()}</p>
           <p><strong>Total Deposits:</strong> UGX ${(u.totalDeposits || 0).toLocaleString()}</p>
@@ -78,6 +96,20 @@
         userList.appendChild(card);
       });
     }
+
+    window.deleteUser = async (id) => {
+      const confirmDelete = confirm("Are you sure you want to delete this user?");
+      if (!confirmDelete) return;
+
+      try {
+        await deleteDoc(doc(db, "users", id));
+        alert("User deleted successfully.");
+        loadUsers(); // refresh list
+      } catch (err) {
+        console.error("Error deleting user:", err);
+        alert("Failed to delete user.");
+      }
+    };
 
     loadUsers();
   </script>
