@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>All Users - SonicEarn</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f6f9;
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+      color: #2a8c4a;
+      margin-bottom: 20px;
+    }
+    .user-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .user-card h4 {
+      margin: 0 0 10px;
+      color: #333;
+    }
+    .user-card p {
+      margin: 5px 0;
+      font-size: 14px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h2><i class="fas fa-users"></i> All Users</h2>
+  <div id="userList">Loading users...</div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore, collection, getDocs
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
+      authDomain: "sonicearn-a13b3.firebaseapp.com",
+      projectId: "sonicearn-a13b3",
+      storageBucket: "sonicearn-a13b3.appspot.com",
+      messagingSenderId: "538538743721",
+      appId: "1:538538743721:web:3ca577a8b2a6ba43e416b8"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const userList = document.getElementById("userList");
+
+    async function loadUsers() {
+      const snapshot = await getDocs(collection(db, "users"));
+      userList.innerHTML = "";
+
+      snapshot.forEach(doc => {
+        const u = doc.data();
+        const card = document.createElement("div");
+        card.className = "user-card";
+        card.innerHTML = `
+          <h4>${u.name || "No Name"} (${u.phone || "No Phone"})</h4>
+          <p><strong>Email:</strong> ${u.email || "N/A"}</p>
+          <p><strong>User ID:</strong> ${u.userId || doc.id}</p>
+          <p><strong>Total Earnings:</strong> UGX ${(u.totalEarnings || 0).toLocaleString()}</p>
+          <p><strong>Total Withdrawn:</strong> UGX ${(u.totalWithdrawn || 0).toLocaleString()}</p>
+          <p><strong>Total Deposits:</strong> UGX ${(u.totalDeposits || 0).toLocaleString()}</p>
+          <p><strong>Account Balance:</strong> UGX ${(u.accountBalance || 0).toLocaleString()}</p>
+        `;
+        userList.appendChild(card);
+      });
+    }
+
+    loadUsers();
+  </script>
+</body>
+</html>
