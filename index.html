@@ -57,10 +57,15 @@
 
 
 <hr>
-<div id="withdraws"></div><script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+<div id="withdraws"></div>
 
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, getDocs, doc, updateDoc, query, where
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
   authDomain: "sonicearn-a13b3.firebaseapp.com",
@@ -76,6 +81,7 @@ const db = getFirestore(app);
 const depositsDiv = document.getElementById("deposits");
 const withdrawsDiv = document.getElementById("withdraws");
 
+// Load pending deposits and withdraws
 async function loadPending() {
   const depositQuery = query(collection(db, "deposits"), where("status", "==", "Pending"));
   const withdrawQuery = query(collection(db, "withdraws"), where("status", "==", "Pending"));
@@ -107,24 +113,51 @@ async function loadPending() {
   });
 }
 
+// Approve deposit with referral bonus
 window.approveDeposit = async (id, userId, amount) => {
   await updateDoc(doc(db, "deposits", id), { status: "Paid" });
-  const userRef = doc(db, "users", userId);
+
   const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
   const userDoc = userSnap.docs[0];
+
   if (userDoc) {
-    const data = userDoc.data();
-    const totalDeposits = (data.totalDeposits || 0) + amount;
-    const uninvested = (data.uninvestedDeposit || 0) + amount;
+    const userData = userDoc.data();
+    const totalDeposits = (userData.totalDeposits || 0) + amount;
+    const uninvested = (userData.uninvestedDeposit || 0) + amount;
     await updateDoc(userDoc.ref, { totalDeposits, uninvestedDeposit: uninvested });
+
+    const referrerId = userData.referrerId;
+    if (referrerId) {
+      const refSnap = await getDocs(query(collection(db, "users"), where("userId", "==", referrerId)));
+      const refDoc = refSnap.docs[0];
+
+      if (refDoc) {
+        const refData = refDoc.data();
+        const referees = refData.refereesIDs || [];
+
+        if (!referees.includes(userId)) {
+          const bonus = Math.floor(amount * 0.25);
+          const totalEarnings = (refData.totalEarnings || 0) + bonus;
+          const accountBalance = (refData.accountBalance || 0) + bonus;
+          referees.push(userId);
+
+          await updateDoc(refDoc.ref, {
+            totalEarnings,
+            accountBalance,
+            refereesIDs: referees
+          });
+        }
+      }
+    }
   }
-  alert("Deposit approved and updated.");
+
+  alert("Deposit approved and updated (with referral bonus if applicable).");
   location.reload();
 };
 
+// Approve withdraw
 window.approveWithdraw = async (id, userId, amount) => {
   await updateDoc(doc(db, "withdraws", id), { status: "Paid" });
-  const userRef = doc(db, "users", userId);
   const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
   const userDoc = userSnap.docs[0];
   if (userDoc) {
@@ -137,6 +170,7 @@ window.approveWithdraw = async (id, userId, amount) => {
   location.reload();
 };
 
+// Reject deposit or withdraw
 window.reject = async (col, id) => {
   await updateDoc(doc(db, col, id), { status: "Rejected" });
   alert("Marked as Rejected.");
