@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Approvals - Admins</title>
@@ -57,20 +59,28 @@
     <p>This page helps admins <strong>Emily</strong> and <strong>Silver</strong> track who approved each deposit and withdrawal.</p>
     <p>Admins should <strong>tick their name</strong> to mark who received or approved the transaction.</p>
     <p><strong>Note:</strong> Withdraw amount is shown after deducting 10% fee. Company earnings = Total deposits - Total withdrawn.</p>
-  </div>  <div class="section">
+  </div>
+
+  <div class="section">
     <h3>✅ Paid Deposits</h3>
     <div id="paidDeposits"></div>
-  </div>  <div class="section">
+  </div>
+
+  <div class="section">
     <h3>✅ Paid Withdrawals</h3>
     <div id="paidWithdrawals"></div>
-  </div>  <div class="summary">
+  </div>
+
+  <div class="summary">
     <p><strong>Total Paid Deposits:</strong> UGX <span id="totalDeposits">0</span></p>
     <p><strong>Total Withdrawals (After 10%):</strong> UGX <span id="totalWithdraws">0</span></p>
     <p><strong>💼 Company Earnings:</strong> UGX <span id="companyEarnings">0</span></p>
-  </div>  <script type="module">
+  </div>
+
+  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
-      getFirestore, collection, getDocs, query, where, doc, setDoc, addDoc
+      getFirestore, collection, getDocs, query, where, doc, setDoc
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -118,14 +128,15 @@
         totalDeposits += d.amount;
         const key = `deposit_${id}`;
         const approved = approvalsMap[key] || {};
+        const alreadyApproved = approved["Emily"] || approved["Silver"];
 
         const div = document.createElement("div");
         div.className = "record";
         div.innerHTML = `
           <p><strong>${d.name}</strong> (${d.phone}) - UGX ${d.amount.toLocaleString()}</p>
           <div class="admin-check">
-            <label><input type="checkbox" ${approved["Emily"] ? "checked disabled" : ""} onclick="handleApproval('${id}', 'deposit', 'Emily', this)"> Emily</label>
-            <label><input type="checkbox" ${approved["Silver"] ? "checked disabled" : ""} onclick="handleApproval('${id}', 'deposit', 'Silver', this)"> Silver</label>
+            <label><input type="checkbox" ${approved["Emily"] ? "checked disabled" : ""} data-id="${id}" data-type="deposit" data-admin="Emily" ${alreadyApproved ? "disabled" : ""}> Emily</label>
+            <label><input type="checkbox" ${approved["Silver"] ? "checked disabled" : ""} data-id="${id}" data-type="deposit" data-admin="Silver" ${alreadyApproved ? "disabled" : ""}> Silver</label>
           </div>
         `;
         container.appendChild(div);
@@ -144,14 +155,15 @@
         totalWithdrawals += net;
         const key = `withdraw_${id}`;
         const approved = approvalsMap[key] || {};
+        const alreadyApproved = approved["Emily"] || approved["Silver"];
 
         const div = document.createElement("div");
         div.className = "record";
         div.innerHTML = `
           <p><strong>${w.holderName}</strong> (${w.phoneNumber}) - UGX ${net.toLocaleString()} <small>(after 10%)</small></p>
           <div class="admin-check">
-            <label><input type="checkbox" ${approved["Emily"] ? "checked disabled" : ""} onclick="handleApproval('${id}', 'withdraw', 'Emily', this)"> Emily</label>
-            <label><input type="checkbox" ${approved["Silver"] ? "checked disabled" : ""} onclick="handleApproval('${id}', 'withdraw', 'Silver', this)"> Silver</label>
+            <label><input type="checkbox" ${approved["Emily"] ? "checked disabled" : ""} data-id="${id}" data-type="withdraw" data-admin="Emily" ${alreadyApproved ? "disabled" : ""}> Emily</label>
+            <label><input type="checkbox" ${approved["Silver"] ? "checked disabled" : ""} data-id="${id}" data-type="withdraw" data-admin="Silver" ${alreadyApproved ? "disabled" : ""}> Silver</label>
           </div>
         `;
         container.appendChild(div);
@@ -164,8 +176,27 @@
       document.getElementById("companyEarnings").textContent = (totalDeposits - totalWithdrawals).toLocaleString();
     }
 
-    window.handleApproval = async (transactionId, transactionType, approvedBy, checkbox) => {
-      checkbox.disabled = true;
+    // One approval only logic
+    document.body.addEventListener("change", async (e) => {
+      const checkbox = e.target;
+      if (checkbox.tagName !== "INPUT" || checkbox.type !== "checkbox") return;
+
+      const transactionId = checkbox.dataset.id;
+      const transactionType = checkbox.dataset.type;
+      const approvedBy = checkbox.dataset.admin;
+      const otherAdmin = approvedBy === "Emily" ? "Silver" : "Emily";
+      const key = `${transactionType}_${transactionId}`;
+
+      const approvalsMap = await fetchApprovalsMap();
+      const alreadyApproved = approvalsMap[key];
+
+      if (alreadyApproved && alreadyApproved[otherAdmin]) {
+        alert(`This transaction was already approved by ${otherAdmin}. Only one admin can approve.`);
+        checkbox.checked = false;
+        return;
+      }
+
+      // Save approval
       const docId = `${transactionType}_${transactionId}_${approvedBy}`;
       await setDoc(doc(db, "approvals", docId), {
         transactionId,
@@ -173,8 +204,14 @@
         approvedBy,
         timestamp: new Date()
       });
-    }
+
+      // Disable both checkboxes
+      const parent = checkbox.closest('.admin-check');
+      const checkboxes = parent.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach(cb => cb.disabled = true);
+    });
 
     renderRecords();
-  </script></body>
+  </script>
+</body>
 </html>
