@@ -287,204 +287,197 @@
   
 
   <!-- Firebase Configuration -->
-  <script>
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
-      authDomain: "sonicearn-a13b3.firebaseapp.com",
-      projectId: "sonicearn-a13b3",
-      storageBucket: "sonicearn-a13b3.firebasestorage.app",
-      messagingSenderId: "538538743721",
-      appId: "1:538538743721:web:3ca577a8b2a6ba43e416b8",
-      measurementId: "G-XGD292PMYM"
-    };
+<script>
+  // Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
+    authDomain: "sonicearn-a13b3.firebaseapp.com",
+    projectId: "sonicearn-a13b3",
+    storageBucket: "sonicearn-a13b3.appspot.com",
+    messagingSenderId: "538538743721",
+    appId: "1:538538743721:web:3ca577a8b2a6ba43e416b8",
+    measurementId: "G-XGD292PMYM"
+  };
 
-    // Initialize Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-  </script>
+  // Initialize Firebase
+  const app = firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
 
-  <script>
-    // DOM elements
-    const processBtn = document.getElementById('processBtn');
-    const resultsContainer = document.getElementById('resultsContainer');
-    const resultsPlaceholder = document.getElementById('resultsPlaceholder');
-    const activeUsersEl = document.getElementById('activeUsers');
-    const activeSharesEl = document.getElementById('activeShares');
-    const totalEarningsEl = document.getElementById('totalEarnings');
-    const lastProcessedEl = document.getElementById('lastProcessed');
+  // DOM elements
+  const processBtn = document.getElementById('processBtn');
+  const resultsContainer = document.getElementById('resultsContainer');
+  const resultsPlaceholder = document.getElementById('resultsPlaceholder');
+  const activeUsersEl = document.getElementById('activeUsers');
+  const activeSharesEl = document.getElementById('activeShares');
+  const totalEarningsEl = document.getElementById('totalEarnings');
+  const lastProcessedEl = document.getElementById('lastProcessed');
 
-    // Format currency
-    function formatCurrency(amount) {
-      return amount.toLocaleString('en-US') + ' UGX';
-    }
+  // Format currency
+  function formatCurrency(amount) {
+    return amount.toLocaleString('en-US') + ' UGX';
+  }
 
-    // Format date
-    function formatDate(date) {
-      return new Date(date).toLocaleString();
-    }
+  // Format date
+  function formatDate(date) {
+    return new Date(date).toLocaleString();
+  }
 
-    // Show loading state
-    function showLoading() {
+  // Show loading state
+  function showLoading() {
+    resultsPlaceholder.innerHTML = `
+      <div class="loading">
+        <i class="fas fa-spinner"></i>
+        Processing earnings...
+      </div>
+    `;
+    processBtn.disabled = true;
+    processBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+  }
+
+  // Show results
+  function showResults(processedShares) {
+    if (processedShares.length === 0) {
       resultsPlaceholder.innerHTML = `
-        <div class="loading">
-          <i class="fas fa-spinner"></i>
-          Processing earnings...
+        <div style="text-align: center; padding: 40px 20px; color: var(--text-light);">
+          <i class="fas fa-check-circle" style="color: var(--success); font-size: 48px; margin-bottom: 15px;"></i>
+          <p>No earnings processed (must wait 24 hours)</p>
         </div>
       `;
-      processBtn.disabled = true;
-      processBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+      return;
     }
 
-    // Show results
-    function showResults(processedShares) {
-      if (processedShares.length === 0) {
-        resultsPlaceholder.innerHTML = `
-          <div style="text-align: center; padding: 40px 20px; color: var(--text-light);">
-            <i class="fas fa-check-circle" style="color: var(--success); font-size: 48px; margin-bottom: 15px;"></i>
-            <p>No active shares to process today</p>
-          </div>
-        `;
-        return;
-      }
+    let resultsHTML = `
+      <div class="success-message">
+        <i class="fas fa-check-circle"></i>
+        Processed ${processedShares.length} shares successfully
+      </div>
+    `;
 
-      let resultsHTML = `
-        <div class="success-message">
-          <i class="fas fa-check-circle"></i>
-          Processed ${processedShares.length} shares successfully
+    processedShares.forEach(share => {
+      resultsHTML += `
+        <div class="result-item">
+          <div class="user-info">${share.userId.substring(0, 12)}...</div>
+          <div class="amount">+ ${formatCurrency(share.dailyEarning)}</div>
         </div>
       `;
+    });
 
-      processedShares.forEach(share => {
-        resultsHTML += `
-          <div class="result-item">
-            <div class="user-info">${share.userId.substring(0, 12)}...</div>
-            <div class="amount">+ ${formatCurrency(share.dailyEarning)}</div>
-          </div>
-        `;
+    resultsPlaceholder.innerHTML = resultsHTML;
+  }
+
+  // Update stats
+  async function updateStats() {
+    try {
+      const usersSnapshot = await db.collection('users').get();
+      activeUsersEl.textContent = usersSnapshot.size;
+
+      let activeShares = 0;
+      let totalEarnings = 0;
+      const sharesSnapshot = await db.collection('shares').where('status', '==', 'active').get();
+
+      sharesSnapshot.forEach(doc => {
+        activeShares++;
+        const share = doc.data();
+        totalEarnings += share.totalEarnings || 0;
       });
 
-      resultsPlaceholder.innerHTML = resultsHTML;
-    }
+      activeSharesEl.textContent = activeShares;
+      totalEarningsEl.textContent = formatCurrency(totalEarnings);
 
-    // Update stats
-    async function updateStats() {
-      try {
-        // Get active users count
-        const usersSnapshot = await db.collection('users').get();
-        activeUsersEl.textContent = usersSnapshot.size;
-        
-        // Get active shares and total earnings
-        let activeShares = 0;
-        let totalEarnings = 0;
-        
-        const sharesSnapshot = await db.collection('shares')
-          .where('status', '==', 'active')
-          .get();
-        
-        sharesSnapshot.forEach(doc => {
-          activeShares++;
-          const share = doc.data();
-          totalEarnings += share.totalEarnings || 0;
-        });
-        
-        activeSharesEl.textContent = activeShares;
-        totalEarningsEl.textContent = formatCurrency(totalEarnings);
-        
-        // Get last processed date
-        const settingsDoc = await db.collection('settings').doc('lastProcessed').get();
-        if (settingsDoc.exists) {
-          const data = settingsDoc.data();
-          lastProcessedEl.textContent = formatDate(data.timestamp.toDate());
-        }
-        
-      } catch (error) {
-        console.error('Error updating stats:', error);
+      const settingsDoc = await db.collection('settings').doc('lastProcessed').get();
+      if (settingsDoc.exists) {
+        const data = settingsDoc.data();
+        lastProcessedEl.textContent = formatDate(data.timestamp.toDate());
       }
+    } catch (error) {
+      console.error('Error updating stats:', error);
     }
+  }
 
-    // Process earnings
-    async function processEarnings() {
-      showLoading();
-      
-      try {
-        const processedShares = [];
-        
-        // Get all active shares
-        const sharesSnapshot = await db.collection('shares')
-          .where('status', '==', 'active')
-          .get();
-        
-        // Process each share
-        for (const shareDoc of sharesSnapshot.docs) {
-          const share = shareDoc.data();
-          const shareId = shareDoc.id;
-          
-          // Calculate new values
+  // Process earnings with 24-hour restriction
+  async function processEarnings() {
+    showLoading();
+
+    try {
+      const processedShares = [];
+      const now = new Date();
+
+      const sharesSnapshot = await db.collection('shares')
+        .where('status', '==', 'active')
+        .get();
+
+      for (const shareDoc of sharesSnapshot.docs) {
+        const share = shareDoc.data();
+        const shareId = shareDoc.id;
+        const userRef = db.collection('users').doc(share.userId);
+        const userDoc = await userRef.get();
+
+        if (!userDoc.exists) continue;
+
+        const userData = userDoc.data();
+        const lastEarnTime = userData.lastEarnProcess?.toDate?.() || null;
+        const canProcess = !lastEarnTime || (now - lastEarnTime >= 24 * 60 * 60 * 1000); // 24 hrs
+
+        if (canProcess) {
           const newDaysCompleted = (share.daysCompleted || 0) + 1;
           const newTotalEarnings = (share.totalEarnings || 0) + share.dailyEarning;
           const newStatus = newDaysCompleted >= 50 ? 'completed' : 'active';
-          
+
           // Update share
           await db.collection('shares').doc(shareId).update({
             daysCompleted: newDaysCompleted,
             totalEarnings: newTotalEarnings,
             status: newStatus
           });
-          
+
           // Update user
-          await db.collection('users').doc(share.userId).update({
+          await userRef.update({
             totalEarnings: firebase.firestore.FieldValue.increment(share.dailyEarning),
-            accountBalance: firebase.firestore.FieldValue.increment(share.dailyEarning)
+            accountBalance: firebase.firestore.FieldValue.increment(share.dailyEarning),
+            lastEarnProcess: firebase.firestore.Timestamp.now()
           });
-          
-          // Add to processed list
+
           processedShares.push({
             userId: share.userId,
             dailyEarning: share.dailyEarning
           });
         }
-        
-        // Update last processed timestamp
-        await db.collection('settings').doc('lastProcessed').set({
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          processedShares: processedShares.length
-        });
-        
-        // Show results
-        showResults(processedShares);
-        
-      } catch (error) {
-        console.error('Error processing earnings:', error);
-        resultsPlaceholder.innerHTML = `
-          <div style="text-align: center; padding: 40px 20px; color: var(--danger);">
-            <i class="fas fa-exclamation-circle" style="font-size: 48px; margin-bottom: 15px;"></i>
-            <p>Error processing earnings: ${error.message}</p>
-          </div>
-        `;
-      } finally {
-        processBtn.disabled = false;
-        processBtn.innerHTML = '<i class="fas fa-cogs"></i> Process Daily Earnings';
-        updateStats();
       }
-    }
 
-    // Initialize page
-    document.addEventListener('DOMContentLoaded', function() {
-      // Admin authentication
-      auth.signInWithEmailAndPassword('admin@sonicearn.com', 'your_admin_password')
-        .catch(error => {
-          console.error('Admin authentication failed:', error);
-          alert('Admin authentication failed. Please check console for details.');
-        });
-      
-      // Update stats
+      // Update last processed global time
+      await db.collection('settings').doc('lastProcessed').set({
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        processedShares: processedShares.length
+      });
+
+      showResults(processedShares);
+    } catch (error) {
+      console.error('Error processing earnings:', error);
+      resultsPlaceholder.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; color: var(--danger);">
+          <i class="fas fa-exclamation-circle" style="font-size: 48px; margin-bottom: 15px;"></i>
+          <p>Error processing earnings: ${error.message}</p>
+        </div>
+      `;
+    } finally {
+      processBtn.disabled = false;
+      processBtn.innerHTML = '<i class="fas fa-cogs"></i> Process Daily Earnings';
       updateStats();
-      
-      // Event listeners
-      processBtn.addEventListener('click', processEarnings);
-    });
-  </script>
+    }
+  }
+
+  // Initialize
+  document.addEventListener('DOMContentLoaded', () => {
+    auth.signInWithEmailAndPassword('admin@sonicearn.com', 'your_admin_password')
+      .catch(error => {
+        console.error('Admin authentication failed:', error);
+        alert('Admin login failed. Check console.');
+      });
+
+    updateStats();
+    processBtn.addEventListener('click', processEarnings);
+  });
+</script>
 </body>
 </html>
