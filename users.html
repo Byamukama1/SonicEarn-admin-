@@ -38,7 +38,6 @@
       padding: 15px;
       margin-bottom: 15px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      position: relative;
     }
 
     .user-card h4,
@@ -48,11 +47,16 @@
       color: #333;
     }
 
-    .user-card h4[contenteditable="true"],
-    .user-card p[contenteditable="true"] {
+    .number-edit {
+      display: inline-block;
       background: #eef;
-      padding: 2px 4px;
+      padding: 2px 6px;
       border-radius: 4px;
+      min-width: 60px;
+    }
+
+    .number-edit[contenteditable="true"]:focus {
+      outline: 2px solid #007B55;
     }
 
     .action-buttons {
@@ -137,17 +141,25 @@
       users.forEach(u => {
         const card = document.createElement("div");
         card.className = "user-card";
-        card.setAttribute("data-name", u.name?.toLowerCase() || "");
-        card.setAttribute("data-phone", u.phone?.toLowerCase() || "");
 
         card.innerHTML = `
-          <h4 contenteditable="true" id="name-${u.id}">${u.name || "No Name"} (${u.phone || "No Phone"})</h4>
-          <p contenteditable="true" id="email-${u.id}"><strong>Email:</strong> ${u.email || "N/A"}</p>
+          <h4>${u.name || "No Name"} (${u.phone || "No Phone"})</h4>
+          <p><strong>Email:</strong> ${u.email || "N/A"}</p>
           <p><strong>User ID:</strong> ${u.userId || u.id}</p>
-          <p contenteditable="true" id="earn-${u.id}"><strong>Total Earnings:</strong> ${u.totalEarnings || 0}</p>
-          <p contenteditable="true" id="with-${u.id}"><strong>Total Withdrawn:</strong> ${u.totalWithdrawn || 0}</p>
-          <p contenteditable="true" id="dep-${u.id}"><strong>Total Deposits:</strong> ${u.totalDeposits || 0}</p>
-          <p contenteditable="true" id="bal-${u.id}"><strong>Account Balance:</strong> ${u.accountBalance || 0}</p>
+
+          <p><strong>Total Earnings:</strong> 
+            <span contenteditable="true" class="number-edit" id="earn-${u.id}">${u.totalEarnings || 0}</span>
+          </p>
+          <p><strong>Total Withdrawn:</strong> 
+            <span contenteditable="true" class="number-edit" id="with-${u.id}">${u.totalWithdrawn || 0}</span>
+          </p>
+          <p><strong>Total Deposits:</strong> 
+            <span contenteditable="true" class="number-edit" id="dep-${u.id}">${u.totalDeposits || 0}</span>
+          </p>
+          <p><strong>Account Balance:</strong> 
+            <span contenteditable="true" class="number-edit" id="bal-${u.id}">${u.accountBalance || 0}</span>
+          </p>
+
           <div class="action-buttons">
             <button class="save-btn" onclick="saveUser('${u.id}')">Save</button>
             <button class="delete-btn" onclick="deleteUser('${u.id}')">Delete</button>
@@ -181,21 +193,12 @@
 
     window.saveUser = async (id) => {
       try {
-        const email = document.getElementById(`email-${id}`).innerText.replace("Email:", "").trim();
-        const totalEarnings = parseFloat(document.getElementById(`earn-${id}`).innerText.replace("Total Earnings:", "").trim());
-        const totalWithdrawn = parseFloat(document.getElementById(`with-${id}`).innerText.replace("Total Withdrawn:", "").trim());
-        const totalDeposits = parseFloat(document.getElementById(`dep-${id}`).innerText.replace("Total Deposits:", "").trim());
-        const accountBalance = parseFloat(document.getElementById(`bal-${id}`).innerText.replace("Account Balance:", "").trim());
-        const namePhoneText = document.getElementById(`name-${id}`).innerText;
-        const nameMatch = namePhoneText.match(/^(.*)\s\(/);
-        const phoneMatch = namePhoneText.match(/\((.*)\)/);
-        const name = nameMatch ? nameMatch[1].trim() : "";
-        const phone = phoneMatch ? phoneMatch[1].trim() : "";
+        const totalEarnings = parseFloat(document.getElementById(`earn-${id}`).innerText.trim());
+        const totalWithdrawn = parseFloat(document.getElementById(`with-${id}`).innerText.trim());
+        const totalDeposits = parseFloat(document.getElementById(`dep-${id}`).innerText.trim());
+        const accountBalance = parseFloat(document.getElementById(`bal-${id}`).innerText.trim());
 
         await updateDoc(doc(db, "users", id), {
-          name,
-          phone,
-          email,
           totalEarnings,
           totalWithdrawn,
           totalDeposits,
