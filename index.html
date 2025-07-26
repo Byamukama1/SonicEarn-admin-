@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -36,7 +37,8 @@
   </style>
 </head>
 <body>
-  <h2>Pending Transactions</h2>  <div style="margin-bottom: 20px;">
+  <h2>Pending Transactions</h2>
+  <div style="margin-bottom: 20px;">
     <button onclick="window.location.href='processingEarnings.html'" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 6px; margin-right: 10px; cursor: pointer;">
       📈 Process Earnings
     </button>
@@ -46,15 +48,16 @@
     <button onclick="window.location.href='users.html'" style="padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer;">
       👥 Users
     </button>
-  </div>  <div id="deposits"></div>
+  </div>
+
+  <div id="deposits"></div>
   <hr>
-  <div id="withdraws"></div> 
-  
-  
+  <div id="withdraws"></div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
-    getFirestore, collection, getDocs, doc, updateDoc, query, where
+    getFirestore, collection, getDocs, doc, updateDoc, query, where, arrayUnion
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -106,18 +109,44 @@
   window.approveDeposit = async (id, userId, amount) => {
     await updateDoc(doc(db, "deposits", id), { status: "Paid" });
 
+    // Get the user who made the deposit
     const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
+    if (userSnap.empty) return alert("User not found.");
     const userDoc = userSnap.docs[0];
+    const userData = userDoc.data();
 
-    if (userDoc) {
-      const userData = userDoc.data();
-      const totalDeposits = (userData.totalDeposits || 0) + amount;
-      const uninvested = (userData.uninvestedDeposit || 0) + amount;
+    const totalDeposits = (userData.totalDeposits || 0) + amount;
+    const uninvested = (userData.uninvestedDeposit || 0) + amount;
 
-      await updateDoc(userDoc.ref, { totalDeposits, uninvestedDeposit: uninvested });
+    await updateDoc(userDoc.ref, {
+      totalDeposits,
+      uninvestedDeposit: uninvested
+    });
+
+    // Handle referral bonus
+    const referrerPhone = userData.referrerPhone;
+    if (referrerPhone) {
+      const refSnap = await getDocs(query(collection(db, "users"), where("phone", "==", referrerPhone)));
+      if (!refSnap.empty) {
+        const refDoc = refSnap.docs[0];
+        const refData = refDoc.data();
+        const referees = refData.refereesIDs || [];
+
+        if (!referees.includes(userId)) {
+          const bonus = Math.floor(amount * 0.25);
+          const updatedEarnings = (refData.totalEarnings || 0) + bonus;
+          const updatedBalance = (refData.accountBalance || 0) + bonus;
+
+          await updateDoc(refDoc.ref, {
+            totalEarnings: updatedEarnings,
+            accountBalance: updatedBalance,
+            refereesIDs: arrayUnion(userId)
+          });
+        }
+      }
     }
 
-    alert("Deposit approved.");
+    alert("Deposit approved and referral bonus awarded if applicable.");
     location.reload();
   };
 
@@ -125,9 +154,8 @@
     await updateDoc(doc(db, "withdraws", id), { status: "Paid" });
 
     const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
-    const userDoc = userSnap.docs[0];
-
-    if (userDoc) {
+    if (!userSnap.empty) {
+      const userDoc = userSnap.docs[0];
       const data = userDoc.data();
       const totalWithdrawn = (data.totalWithdrawn || 0) + amount;
 
