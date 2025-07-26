@@ -50,7 +50,7 @@
   <div class="stats" id="totals">
     <p>Total Paid Deposits: UGX <span id="totalDeposits">0</span></p>
     <p>Total Paid Withdraws: UGX <span id="totalWithdraws">0</span></p>
-    <p>Company Profit: UGX <span id="profit">0</span></p>
+    <p>Company Profit (after 10% withdraw charge): UGX <span id="profit">0</span></p>
   </div>
 
   <div style="margin-bottom: 20px;">
@@ -127,19 +127,19 @@
 
     const paidDeposits = await getDocs(query(collection(db, "deposits"), where("status", "==", "Paid")));
     paidDeposits.forEach(doc => {
-      const data = doc.data();
-      totalDeposits += data.amount || 0;
+      totalDeposits += doc.data().amount || 0;
     });
 
     const paidWithdraws = await getDocs(query(collection(db, "withdraws"), where("status", "==", "Paid")));
     paidWithdraws.forEach(doc => {
-      const data = doc.data();
-      totalWithdraws += data.amount || 0;
+      totalWithdraws += doc.data().amount || 0;
     });
+
+    const profit = totalDeposits - (totalWithdraws * 0.9);
 
     document.getElementById("totalDeposits").innerText = totalDeposits.toLocaleString();
     document.getElementById("totalWithdraws").innerText = totalWithdraws.toLocaleString();
-    document.getElementById("profit").innerText = (totalDeposits - totalWithdraws).toLocaleString();
+    document.getElementById("profit").innerText = profit.toLocaleString();
   }
 
   window.approveDeposit = async (id, userId, amount) => {
