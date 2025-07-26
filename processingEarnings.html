@@ -471,8 +471,8 @@
   document.addEventListener('DOMContentLoaded', () => {
     auth.signInWithEmailAndPassword('admin@sonicearn.com', 'your_admin_password')
       .catch(error => {
-        console.error('Admin authentication failed:', error);
-        alert('Admin login failed. Check console.');
+        console.error('Loading:', error);
+        alert('Plaease wait');
       });
 
     updateStats();
