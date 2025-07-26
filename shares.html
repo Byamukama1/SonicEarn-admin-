@@ -540,14 +540,7 @@
       // Admin authentication
       auth.signInWithEmailAndPassword('admin@sonicearn.com', 'your_admin_password')
         .then(() => {
-          // Load initial shares
-          loadShares();
-        })
-        .catch(error => {
-          console.error('Admin authentication failed:', error);
-          showMessage('loading', 'error');
-        });
-
+          
       // Setup filter buttons
       filterBtns.forEach(btn => {
         btn.addEventListener('click', () => {
