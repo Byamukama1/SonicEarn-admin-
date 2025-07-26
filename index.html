@@ -22,9 +22,6 @@
       padding: 15px;
       margin-bottom: 15px;
     }
-    .card h4 {
-      margin: 0 0 10px;
-    }
     .btn {
       padding: 6px 14px;
       border: none;
@@ -34,26 +31,36 @@
     }
     .approve { background: #2ecc71; color: #fff; }
     .reject { background: #e74c3c; color: #fff; }
+    .stats {
+      background: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .stats p {
+      margin: 5px 0;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
   <h2>Pending Transactions</h2>
+
+  <div class="stats" id="totals">
+    <p>Total Paid Deposits: UGX <span id="totalDeposits">0</span></p>
+    <p>Total Paid Withdraws: UGX <span id="totalWithdraws">0</span></p>
+    <p>Company Profit: UGX <span id="profit">0</span></p>
+  </div>
+
   <div style="margin-bottom: 20px;">
-    <button onclick="window.location.href='processingEarnings.html'" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 6px; margin-right: 10px; cursor: pointer;">
-      📈 Process Earnings
-    </button>
+    <button onclick="window.location.href='processingEarnings.html'" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 6px; margin-right: 10px; cursor: pointer;">📈 Process Earnings</button>
     <div>|</div>
-    <button onclick="window.location.href='approvals.html'" style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 6px; margin-right: 10px; cursor: pointer;">
-      ✅ Approvals
-    </button>
+    <button onclick="window.location.href='approvals.html'" style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 6px; margin-right: 10px; cursor: pointer;">✅ Approvals</button>
     <div>|</div>
- <button onclick="window.location.href='shares.html'" style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 6px; margin-right: 10px; cursor: pointer;">
-      Shares
-    </button>
+    <button onclick="window.location.href='shares.html'" style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 6px; margin-right: 10px; cursor: pointer;">Shares</button>
     <div>|</div>
-    <button onclick="window.location.href='users.html'" style="padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer;">
-      👥 Users
-    </button>
+    <button onclick="window.location.href='users.html'" style="padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer;">👥 Users</button>
   </div>
 
   <div id="deposits"></div>
@@ -110,12 +117,34 @@
           <button class="btn reject" onclick="reject('withdraws', '${docSnap.id}')">Reject</button>
         </div>`;
     });
+
+    calculateTotals();
+  }
+
+  async function calculateTotals() {
+    let totalDeposits = 0;
+    let totalWithdraws = 0;
+
+    const paidDeposits = await getDocs(query(collection(db, "deposits"), where("status", "==", "Paid")));
+    paidDeposits.forEach(doc => {
+      const data = doc.data();
+      totalDeposits += data.amount || 0;
+    });
+
+    const paidWithdraws = await getDocs(query(collection(db, "withdraws"), where("status", "==", "Paid")));
+    paidWithdraws.forEach(doc => {
+      const data = doc.data();
+      totalWithdraws += data.amount || 0;
+    });
+
+    document.getElementById("totalDeposits").innerText = totalDeposits.toLocaleString();
+    document.getElementById("totalWithdraws").innerText = totalWithdraws.toLocaleString();
+    document.getElementById("profit").innerText = (totalDeposits - totalWithdraws).toLocaleString();
   }
 
   window.approveDeposit = async (id, userId, amount) => {
     await updateDoc(doc(db, "deposits", id), { status: "Paid" });
 
-    // Get the user who made the deposit
     const userSnap = await getDocs(query(collection(db, "users"), where("userId", "==", userId)));
     if (userSnap.empty) return alert("User not found.");
     const userDoc = userSnap.docs[0];
@@ -129,7 +158,6 @@
       uninvestedDeposit: uninvested
     });
 
-    // Handle referral bonus
     const referrerPhone = userData.referrerPhone;
     if (referrerPhone) {
       const refSnap = await getDocs(query(collection(db, "users"), where("phone", "==", referrerPhone)));
