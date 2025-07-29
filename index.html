@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
   <title>Admin - Approve Transactions</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -42,10 +43,18 @@
       margin: 5px 0;
       font-weight: bold;
     }
+    canvas {
+      max-width: 100%;
+    }
   </style>
 </head>
 <body>
   <h2>Pending Transactions</h2>
+
+  <div class="stats">
+    <h3>📈 Company Profit Over Time</h3>
+    <canvas id="profitChart"></canvas>
+  </div>
 
   <div class="stats" id="totals">
     <p>Total Paid Deposits: UGX <span id="totalDeposits">0</span></p>
@@ -56,7 +65,8 @@
   <div style="margin-bottom: 20px;">
     <button onclick="window.location.href='processingEarnings.html'" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 6px; margin-right: 10px; cursor: pointer;">📈 Process Earnings</button>
     <div>|</div>
-    
+    <button onclick="window.location.href='approvals.html'" style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 6px; margin-right: 10px; cursor: pointer;">✅ Approvals</button>
+    <div>|</div>
     <button onclick="window.location.href='shares.html'" style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 6px; margin-right: 10px; cursor: pointer;">Shares</button>
     <div>|</div>
     <button onclick="window.location.href='users.html'" style="padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer;">👥 Users</button>
@@ -86,6 +96,47 @@
 
   const depositsDiv = document.getElementById("deposits");
   const withdrawsDiv = document.getElementById("withdraws");
+
+  let profitChart;
+
+  function updateProfitGraph(profitValue) {
+    const now = new Date();
+    const timeLabel = now.toLocaleTimeString(); // e.g., 2:10:15 PM
+
+    if (!profitChart) {
+      const ctx = document.getElementById('profitChart').getContext('2d');
+      profitChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [timeLabel],
+          datasets: [{
+            label: 'Company Profit (UGX)',
+            data: [profitValue],
+            borderColor: 'blue',
+            backgroundColor: 'lightblue',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    } else {
+      profitChart.data.labels.push(timeLabel);
+      profitChart.data.datasets[0].data.push(profitValue);
+      if (profitChart.data.labels.length > 10) {
+        profitChart.data.labels.shift();
+        profitChart.data.datasets[0].data.shift();
+      }
+      profitChart.update();
+    }
+  }
 
   async function loadPending() {
     const depositQuery = query(collection(db, "deposits"), where("status", "==", "Pending"));
@@ -139,6 +190,8 @@
     document.getElementById("totalDeposits").innerText = totalDeposits.toLocaleString();
     document.getElementById("totalWithdraws").innerText = totalWithdraws.toLocaleString();
     document.getElementById("profit").innerText = profit.toLocaleString();
+
+    updateProfitGraph(profit);
   }
 
   window.approveDeposit = async (id, userId, amount) => {
