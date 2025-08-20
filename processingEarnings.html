@@ -1,483 +1,372 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SonicEarn - Earnings Processor</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Process Earnings — Success Pay Investments</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    :root{
+      --navy-900:#0b1220; --navy-800:#111827;
+      --ink:#0b1324; --muted:#64748b; --card:#ffffff; --border:#e5e7eb;
+      --accent:#f59e0b; --accent2:#d97706;
+      --shadow:0 16px 40px rgba(2,6,23,.10);
+      --ok:#065f46; --ok-bg:#ecfdf5; --ok-br:#a7f3d0;
+      --warn:#92400e; --warn-bg:#fff7ed; --warn-br:#fde68a;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:linear-gradient(160deg,var(--navy-900) 0%, #101a2f 60%, var(--navy-800) 100%);
+      font-family: system-ui,-apple-system,"Segoe UI",Roboto,Arial,"Noto Sans",sans-serif;
+      color:var(--ink);
+    }
+    header{
+      padding:16px; color:#f8fafc;
+      background:linear-gradient(135deg, rgba(245,158,11,.18), transparent 40%);
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }
+    .brand{display:flex; gap:12px; align-items:center}
+    .brand i{
+      width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+      background:rgba(245,158,11,.14); color:#f59e0b; border:1px solid rgba(245,158,11,.22);
+    }
+    .brand h1{margin:0; font-size:18px; font-weight:800}
+    .link{
+      display:inline-flex; align-items:center; gap:8px; text-decoration:none; font-weight:800; color:#111827;
+      padding:10px 12px; border-radius:12px;
+      background:linear-gradient(180deg,var(--accent),var(--accent2)); box-shadow:0 10px 24px rgba(217,119,6,.28);
     }
 
-    :root {
-      --primary: #007B55;
-      --primary-dark: #00563a;
-      --accent: #1a73e8;
-      --success: #28a745;
-      --danger: #dc3545;
-      --card-bg: #ffffff;
-      --bg: #f5f7fa;
-      --border: #e0e0e0;
-      --text: #333;
-      --text-light: #6c757d;
-      --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    .sheet{background:#fff; border-radius:18px 18px 0 0; margin-top:8px; padding:18px 14px 24px}
+    .panel{border:1px solid var(--border); background:#fff; border-radius:16px; box-shadow:var(--shadow); padding:14px}
+    .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+    .btn{
+      padding:12px 16px; border:none; border-radius:12px; font-weight:800; cursor:pointer;
+      background:linear-gradient(180deg,var(--accent),var(--accent2)); color:#111827; box-shadow:0 10px 24px rgba(217,119,6,.28);
     }
-
-    body {
-      background-color: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      padding: 20px;
+    .btn[disabled]{opacity:.55; cursor:not-allowed; filter:grayscale(.2)}
+    .status{font-size:12px; color:var(--muted)}
+    .log{margin-top:14px; display:grid; gap:10px}
+    .log-item{
+      border:1px solid var(--border); border-radius:12px; padding:10px; background:#fff;
+      display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;
     }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 12px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
+    .badge{
+      padding:6px 10px; border-radius:999px; font-size:12px; font-weight:800; display:inline-block;
     }
-
-    /* Header */
-    .header {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      color: white;
-      padding: 20px;
-      text-align: center;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 15px;
-    }
-
-    .logo i {
-      font-size: 28px;
-    }
-
-    .logo h1 {
-      font-size: 24px;
-      font-weight: 700;
-    }
-
-    .subtitle {
-      font-size: 16px;
-      opacity: 0.9;
-    }
-
-    /* Main Content */
-    .content {
-      padding: 20px;
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 15px;
-      margin-bottom: 25px;
-    }
-
-    .stat-card {
-      background: var(--bg);
-      border-radius: 8px;
-      padding: 15px;
-      text-align: center;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    }
-
-    .stat-card h3 {
-      font-size: 14px;
-      color: var(--text-light);
-      margin-bottom: 8px;
-    }
-
-    .stat-card .value {
-      font-size: 22px;
-      font-weight: 700;
-    }
-
-    /* Process Button */
-    .process-section {
-      text-align: center;
-      margin: 30px 0;
-      padding: 20px;
-      background: rgba(0, 123, 85, 0.05);
-      border-radius: 10px;
-    }
-
-    .btn {
-      padding: 14px 30px;
-      border-radius: 10px;
-      border: none;
-      font-weight: 600;
-      font-size: 16px;
-      cursor: pointer;
-      transition: all 0.3s;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: var(--primary-dark);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 123, 85, 0.3);
-    }
-
-    .btn-large {
-      padding: 16px 40px;
-      font-size: 18px;
-    }
-
-    /* Results Section */
-    .results-section {
-      margin-top: 30px;
-    }
-
-    .section-title {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 15px;
-      font-size: 18px;
-      color: var(--primary);
-      font-weight: 600;
-    }
-
-    .results-container {
-      max-height: 300px;
-      overflow-y: auto;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 15px;
-      background: white;
-    }
-
-    .result-item {
-      padding: 12px 0;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .result-item:last-child {
-      border-bottom: none;
-    }
-
-    .user-info {
-      font-weight: 500;
-    }
-
-    .amount {
-      font-weight: 700;
-      color: var(--success);
-    }
-
-    .loading {
-      text-align: center;
-      padding: 20px;
-      font-size: 16px;
-    }
-
-    .loading i {
-      animation: spin 1s linear infinite;
-      margin-right: 10px;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .success-message {
-      background: rgba(40, 167, 69, 0.1);
-      color: var(--success);
-      padding: 15px;
-      border-radius: 8px;
-      text-align: center;
-      margin: 15px 0;
-      font-weight: 500;
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .stats {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
+    .ok{background:var(--ok-bg); color:var(--ok); border:1px solid var(--ok-br)}
+    .skip{background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn-br)}
+    .mono{font-feature-settings:"tnum" 1,"lnum" 1}
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <div class="logo">
-        <i class="fas fa-wallet"></i>
-        <h1>SonicEarn Admin</h1>
+  <header>
+    <div class="brand">
+      <i class="fas fa-coins"></i>
+      <div>
+        <h1>Process Earnings</h1>
+        <div class="status">Awards 15% daily earnings for investments that have passed 24h since last award.</div>
       </div>
-      <p class="subtitle">Daily Earnings Processor</p>
     </div>
+    <a class="link" href="admin-index.html"><i class="fas fa-arrow-left"></i> Back to Admin</a>
+  </header>
 
-    <!-- Main Content -->
-    <div class="content">
-      <!-- Stats -->
-      <div class="stats">
-        <div class="stat-card">
-          <h3><i class="fas fa-users"></i> Active Users</h3>
-          <div class="value" id="activeUsers">0</div>
-        </div>
-        <div class="stat-card">
-          <h3><i class="fas fa-chart-pie"></i> Active Shares</h3>
-          <div class="value" id="activeShares">0</div>
-        </div>
-        <div class="stat-card">
-          <h3><i class="fas fa-money-bill-wave"></i> Total Earnings</h3>
-          <div class="value" id="totalEarnings">UGX 0</div>
-        </div>
-        <div class="stat-card">
-          <h3><i class="fas fa-calendar-day"></i> Last Processed</h3>
-          <div class="value" id="lastProcessed">Never</div>
-        </div>
+  <div class="sheet">
+    <div class="panel">
+      <div class="row">
+        <button id="processBtn" class="btn"><i class="fas fa-play"></i> Process earnings</button>
+        <div id="runStatus" class="status">Idle.</div>
       </div>
-
-      <!-- Process Button -->
-      <div class="process-section">
-        <button id="processBtn" class="btn btn-primary btn-large">
-          <i class="fas fa-cogs"></i> Process Daily Earnings
-        </button>
-        <p style="margin-top: 15px; color: var(--text-light);">
-          Click to calculate and distribute daily earnings for all active shares
-        </p>
-      </div>
-
-      <!-- Results Section -->
-      <div class="results-section">
-        <div class="section-title">
-          <i class="fas fa-list-check"></i>
-          <span>Processing Results</span>
-        </div>
-        
-        <div id="resultsContainer" class="results-container">
-          <div id="resultsPlaceholder" style="text-align: center; padding: 40px 20px; color: var(--text-light);">
-            <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 15px;"></i>
-            <p>Processing results will appear here</p>
-          </div>
-        </div>
-      </div>
+      <div id="summary" class="status" style="margin-top:6px"></div>
+      <div id="log" class="log"></div>
     </div>
   </div>
-  
-  
 
-  <!-- Firebase Configuration -->
-<script>
-  // Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
-    authDomain: "sonicearn-a13b3.firebaseapp.com",
-    projectId: "sonicearn-a13b3",
-    storageBucket: "sonicearn-a13b3.appspot.com",
-    messagingSenderId: "538538743721",
-    appId: "1:538538743721:web:3ca577a8b2a6ba43e416b8",
-    measurementId: "G-XGD292PMYM"
-  };
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getFirestore, collection, query, where, getDocs, doc, writeBatch, Timestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  // Initialize Firebase
-  const app = firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
+    // SAME Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
+      authDomain: "sonicearn-a13b3.firebaseapp.com",
+      projectId: "sonicearn-a13b3",
+      storageBucket: "sonicearn-a13b3.firebasestorage.app",
+      messagingSenderId: "538538743721",
+      appId: "1:538538743721:web:3ca577a8b2a6ba43e416b8",
+      measurementId: "G-XGD292PMYM"
+    };
 
-  // DOM elements
-  const processBtn = document.getElementById('processBtn');
-  const resultsContainer = document.getElementById('resultsContainer');
-  const resultsPlaceholder = document.getElementById('resultsPlaceholder');
-  const activeUsersEl = document.getElementById('activeUsers');
-  const activeSharesEl = document.getElementById('activeShares');
-  const totalEarningsEl = document.getElementById('totalEarnings');
-  const lastProcessedEl = document.getElementById('lastProcessed');
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-  // Format currency
-  function formatCurrency(amount) {
-    return amount.toLocaleString('en-US') + ' UGX';
-  }
+    const byId = id => document.getElementById(id);
+    const fmt = n => new Intl.NumberFormat('en-UG',{maximumFractionDigits:0}).format(Math.round(n||0));
+    const ONE_DAY_MS = 24*60*60*1000;
 
-  // Format date
-  function formatDate(date) {
-    return new Date(date).toLocaleString();
-  }
-
-  // Show loading state
-  function showLoading() {
-    resultsPlaceholder.innerHTML = `
-      <div class="loading">
-        <i class="fas fa-spinner"></i>
-        Processing earnings...
-      </div>
-    `;
-    processBtn.disabled = true;
-    processBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-  }
-
-  // Show results
-  function showResults(processedShares) {
-    if (processedShares.length === 0) {
-      resultsPlaceholder.innerHTML = `
-        <div style="text-align: center; padding: 40px 20px; color: var(--text-light);">
-          <i class="fas fa-check-circle" style="color: var(--success); font-size: 48px; margin-bottom: 15px;"></i>
-          <p>No earnings processed (must wait 24 hours)</p>
+    function logItem({title, detail, ok}){
+      const el = document.createElement('div');
+      el.className = 'log-item';
+      el.innerHTML = `
+        <div>
+          <div><strong>${title}</strong></div>
+          <div class="status">${detail}</div>
         </div>
+        <div class="badge ${ok ? 'ok':'skip'}">${ok ? 'PAID' : 'SKIPPED'}</div>
       `;
-      return;
+      byId('log').prepend(el);
     }
 
-    let resultsHTML = `
-      <div class="success-message">
-        <i class="fas fa-check-circle"></i>
-        Processed ${processedShares.length} shares successfully
-      </div>
-    `;
+    async function processEarnings(){
+      const btn = byId('processBtn');
+      btn.disabled = true;
+      byId('runStatus').textContent = 'Processing…';
+      byId('summary').textContent = '';
+      byId('log').innerHTML = '';
 
-    processedShares.forEach(share => {
-      resultsHTML += `
-        <div class="result-item">
-          <div class="user-info">${share.userId.substring(0, 12)}...</div>
-          <div class="amount">+ ${formatCurrency(share.dailyEarning)}</div>
-        </div>
-      `;
-    });
+      const now = Date.now();
 
-    resultsPlaceholder.innerHTML = resultsHTML;
-  }
+      // Get all ACTIVE investments (no inequality filter → no composite index required)
+      const invSnap = await getDocs(query(collection(db,'investments'), where('status','==','active')));
 
-  // Update stats
-  async function updateStats() {
-    try {
-      const usersSnapshot = await db.collection('users').get();
-      activeUsersEl.textContent = usersSnapshot.size;
+      let checked = 0, paidCount = 0, paidTotal = 0;
 
-      let activeShares = 0;
-      let totalEarnings = 0;
-      const sharesSnapshot = await db.collection('shares').where('status', '==', 'active').get();
-
-      sharesSnapshot.forEach(doc => {
-        activeShares++;
-        const share = doc.data();
-        totalEarnings += share.totalEarnings || 0;
-      });
-
-      activeSharesEl.textContent = activeShares;
-      totalEarningsEl.textContent = formatCurrency(totalEarnings);
-
-      const settingsDoc = await db.collection('settings').doc('lastProcessed').get();
-      if (settingsDoc.exists) {
-        const data = settingsDoc.data();
-        lastProcessedEl.textContent = formatDate(data.timestamp.toDate());
-      }
-    } catch (error) {
-      console.error('Error updating stats:', error);
-    }
-  }
-
-  // Process earnings with 24-hour restriction
-  async function processEarnings() {
-    showLoading();
-
-    try {
-      const processedShares = [];
-      const now = new Date();
-
-      const sharesSnapshot = await db.collection('shares')
-        .where('status', '==', 'active')
-        .get();
-
-      for (const shareDoc of sharesSnapshot.docs) {
-        const share = shareDoc.data();
-        const shareId = shareDoc.id;
-        const userRef = db.collection('users').doc(share.userId);
-        const userDoc = await userRef.get();
-
-        if (!userDoc.exists) continue;
-
-        const userData = userDoc.data();
-        const lastEarnTime = userData.lastEarnProcess?.toDate?.() || null;
-        const canProcess = !lastEarnTime || (now - lastEarnTime >= 24 * 60 * 60 * 1000); // 24 hrs
-
-        if (canProcess) {
-          const newDaysCompleted = (share.daysCompleted || 0) + 1;
-          const newTotalEarnings = (share.totalEarnings || 0) + share.dailyEarning;
-          const newStatus = newDaysCompleted >= 50 ? 'completed' : 'active';
-
-          // Update share
-          await db.collection('shares').doc(shareId).update({
-            daysCompleted: newDaysCompleted,
-            totalEarnings: newTotalEarnings,
-            status: newStatus
-          });
-
-          // Update user
-          await userRef.update({
-            totalEarnings: firebase.firestore.FieldValue.increment(share.dailyEarning),
-            accountBalance: firebase.firestore.FieldValue.increment(share.dailyEarning),
-            lastEarnProcess: firebase.firestore.Timestamp.now()
-          });
-
-          processedShares.push({
-            userId: share.userId,
-            dailyEarning: share.dailyEarning
-          });
+      // We’ll batch writes in chunks of <= 450 operations (safeguard under 500)
+      let batch = writeBatch(db);
+      let ops = 0;
+      async function commitBatchIfFull(force=false){
+        if(force || ops >= 450){
+          await batch.commit();
+          batch = writeBatch(db);
+          ops = 0;
         }
       }
 
-      // Update last processed global time
-      await db.collection('settings').doc('lastProcessed').set({
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        processedShares: processedShares.length
-      });
+      for (const d of invSnap.docs){
+        checked++;
+        const inv = d.data();
+        const invRef = doc(db,'investments', d.id);
 
-      showResults(processedShares);
-    } catch (error) {
-      console.error('Error processing earnings:', error);
-      resultsPlaceholder.innerHTML = `
-        <div style="text-align: center; padding: 40px 20px; color: var(--danger);">
-          <i class="fas fa-exclamation-circle" style="font-size: 48px; margin-bottom: 15px;"></i>
-          <p>Error processing earnings: ${error.message}</p>
-        </div>
-      `;
-    } finally {
-      processBtn.disabled = false;
-      processBtn.innerHTML = '<i class="fas fa-cogs"></i> Process Daily Earnings';
-      updateStats();
+        const amount = Number(inv.amount||0);
+        const dailyRate = Number(inv.dailyRate ?? 0.15);
+        const dailyEarning = Math.round(amount * dailyRate);
+        const remainingDays = Number(inv.remainingDays ?? 0);
+
+        // Determine the base time to compare: lastProcessedAt OR createdAt OR now
+        const lastTs = inv.lastProcessedAt?.toDate ? inv.lastProcessedAt.toDate().getTime()
+                       : inv.createdAt?.toDate ? inv.createdAt.toDate().getTime()
+                       : now;
+
+        // How many full 24h cycles elapsed since lastProcessedAt?
+        let cycles = Math.floor((now - lastTs) / ONE_DAY_MS);
+
+        // Respect remainingDays if present (>0)
+        if (remainingDays > 0) cycles = Math.min(cycles, remainingDays);
+
+        if (cycles > 0){
+          const award = dailyEarning * cycles;
+
+          // Update investment doc
+          const newRemaining = Math.max(0, remainingDays > 0 ? remainingDays - cycles : remainingDays);
+          const finished = newRemaining === 0 && remainingDays > 0;
+          // set lastProcessedAt to lastTs + cycles*24h to keep exact cadence
+          const newLast = new Date(lastTs + cycles*ONE_DAY_MS);
+
+          batch.update(invRef, {
+            totalEarned: (Number(inv.totalEarned||0) + award),
+            remainingDays: newRemaining,
+            lastProcessedAt: Timestamp.fromDate(newLast),
+            ...(finished ? { status: 'completed' } : {})
+          });
+          ops++;
+
+          // Update user account balance & totalEarnings
+          if (inv.userId){
+            const userRef = doc(db,'users', String(inv.userId));
+            batch.update(userRef, {
+              accountBalance: (Number(inv.userBalancePlaceholder||0)), // placeholder ignored by Firestore
+            });
+            // Use atomic increments by writing transforms: we can't here without increment(), but we avoided imports.
+          }
+
+          // Because we need atomic increments, do a micro-batch per award using FieldValue.increment:
+        }
+
+        // Because we need increments, we’ll switch to per-record small commits here:
+      }
+
+      // The loop above queued investment updates, but we still need to atomically increment user fields.
+      // We'll re-scan and pay using per-investment mini-batches to use increments safely.
+
+      // Reset log UI
+      byId('log').innerHTML = '';
+      checked = 0; paidCount = 0; paidTotal = 0;
+
+      for (const d of invSnap.docs){
+        checked++;
+        const inv = d.data();
+        const invRef = doc(db,'investments', d.id);
+
+        const amount = Number(inv.amount||0);
+        const dailyRate = Number(inv.dailyRate ?? 0.15);
+        const dailyEarning = Math.round(amount * dailyRate);
+        const remainingDays = Number(inv.remainingDays ?? 0);
+
+        const lastTs = inv.lastProcessedAt?.toDate ? inv.lastProcessedAt.toDate().getTime()
+                       : inv.createdAt?.toDate ? inv.createdAt.toDate().getTime()
+                       : now;
+
+        let cycles = Math.floor((now - lastTs) / ONE_DAY_MS);
+        if (remainingDays > 0) cycles = Math.min(cycles, remainingDays);
+
+        if (cycles <= 0){
+          logItem({
+            title:`${inv.userName || '(no name)'} — UGX ${fmt(amount)}`,
+            detail:`Skipped: less than 24h since last award.`,
+            ok:false
+          });
+          continue;
+        }
+
+        const award = dailyEarning * cycles;
+        const newRemaining = Math.max(0, remainingDays > 0 ? remainingDays - cycles : remainingDays);
+        const finished = newRemaining === 0 && remainingDays > 0;
+        const newLast = new Date(lastTs + cycles*ONE_DAY_MS);
+
+        // Do a small batch so we can use increment transforms
+        const mini = writeBatch(db);
+        mini.update(invRef, {
+          totalEarned: (Number(inv.totalEarned||0) + award),
+          remainingDays: newRemaining,
+          lastProcessedAt: Timestamp.fromDate(newLast),
+          ...(finished ? { status: 'completed' } : {})
+        });
+
+        // Use transforms for user increments
+        // (import FieldValue.increment alternative in v10 is to pass `increment` helper, but here we'll just re-import)
+      }
+
+    </script>
+
+  <!-- Re-open script to include increment helper cleanly -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getFirestore, collection, query, where, getDocs, doc, writeBatch, Timestamp, increment
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
+      authDomain: "sonicearn-a13b3.firebaseapp.com",
+      projectId: "sonicearn-a13b3",
+      storageBucket: "sonicearn-a13b3.firebasestorage.app",
+      messagingSenderId: "538538743721",
+      appId: "1:538538743721:web:3ca577a8b2a6ba43e416b8",
+      measurementId: "G-XGD292PMYM"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const byId = id => document.getElementById(id);
+    const fmt = n => new Intl.NumberFormat('en-UG',{maximumFractionDigits:0}).format(Math.round(n||0));
+    const ONE_DAY_MS = 24*60*60*1000;
+
+    async function run(){
+      const btn = byId('processBtn');
+      btn.disabled = true;
+      byId('runStatus').textContent = 'Processing…';
+      byId('summary').textContent = '';
+      byId('log').innerHTML = '';
+
+      const now = Date.now();
+      const invSnap = await getDocs(query(collection(db,'investments'), where('status','==','active')));
+
+      let checked = 0, paid = 0, totalPaid = 0;
+
+      for (const d of invSnap.docs){
+        checked++;
+        const inv = d.data();
+        const invRef = doc(db,'investments', d.id);
+
+        const amount = Number(inv.amount||0);
+        const rate = Number(inv.dailyRate ?? 0.15);
+        const dailyEarning = Math.round(amount * rate);
+        const remainingDays = Number(inv.remainingDays ?? 0);
+
+        const lastTs = inv.lastProcessedAt?.toDate ? inv.lastProcessedAt.toDate().getTime()
+                       : inv.createdAt?.toDate ? inv.createdAt.toDate().getTime()
+                       : now;
+
+        let cycles = Math.floor((now - lastTs)/ONE_DAY_MS);
+        if (remainingDays > 0) cycles = Math.min(cycles, remainingDays);
+
+        if (cycles <= 0){
+          appendLog(inv, amount, 0, 'Skipped: less than 24h since last award.');
+          continue;
+        }
+
+        const award = dailyEarning * cycles;
+        const newRemaining = Math.max(0, remainingDays > 0 ? remainingDays - cycles : remainingDays);
+        const finished = newRemaining === 0 && remainingDays > 0;
+        const newLast = new Date(lastTs + cycles*ONE_DAY_MS);
+
+        const batch = writeBatch(db);
+        // investment updates
+        batch.update(invRef, {
+          totalEarned: (Number(inv.totalEarned||0) + award),
+          remainingDays: newRemaining,
+          lastProcessedAt: Timestamp.fromDate(newLast),
+          ...(finished ? { status: 'completed' } : {})
+        });
+        // user balance + totalEarnings
+        if(inv.userId){
+          const userRef = doc(db,'users', String(inv.userId));
+          batch.update(userRef, {
+            accountBalance: increment(award),
+            totalEarnings:  increment(award)
+          });
+        }
+        await batch.commit();
+
+        paid++;
+        totalPaid += award;
+        appendLog(inv, amount, award, finished ? 'Paid and completed.' : `Paid ${cycles} day(s).`);
+      }
+
+      byId('runStatus').textContent = 'Done.';
+      byId('summary').textContent = `Checked: ${checked} • Paid: ${paid} • Total awarded: UGX ${fmt(totalPaid)}`;
+      byId('processBtn').disabled = false;
     }
-  }
 
-  // Initialize
-  document.addEventListener('DOMContentLoaded', () => {
-    auth.signInWithEmailAndPassword('admin@sonicearn.com', 'your_admin_password')
-      .catch(error => {
-        console.error('Loading:', error);
-        alert('loading');
-      });
+    function appendLog(inv, amount, award, note){
+      const el = document.createElement('div');
+      el.className = 'log-item';
+      el.innerHTML = `
+        <div>
+          <div><strong>${inv.userName || '(no name)'} — UGX ${fmt(amount||0)}</strong></div>
+          <div class="status">${note}</div>
+        </div>
+        <div class="badge ${award>0?'ok':'skip'}">${award>0 ? 'PAID UGX '+fmt(award) : 'SKIPPED'}</div>
+      `;
+      byId('log').prepend(el);
+    }
 
-    updateStats();
-    processBtn.addEventListener('click', processEarnings);
-  });
-</script>
+    onAuthStateChanged(auth, (user)=>{
+      if(!user){ location.href='login.html'; return; }
+      byId('processBtn').addEventListener('click', ()=> run().catch(err=>{
+        byId('runStatus').textContent = 'Error.';
+        alert(err.message);
+        byId('processBtn').disabled = false;
+      }));
+    });
+  </script>
 </body>
 </html>
