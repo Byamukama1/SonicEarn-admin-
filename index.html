@@ -22,8 +22,6 @@
       font-family: system-ui,-apple-system,"Segoe UI",Roboto,Arial,"Noto Sans",sans-serif;
       color:var(--ink);
     }
-
-    /* Header */
     header{
       padding:16px; color:#f8fafc;
       background:linear-gradient(135deg, rgba(245,158,11,.18), transparent 40%);
@@ -42,10 +40,8 @@
       background:linear-gradient(180deg,var(--accent) 0%, var(--accent2) 100%); box-shadow:0 10px 24px rgba(217,119,6,.28);
     }
 
-    /* Content sheet */
     .sheet{background:#fff; border-radius:18px 18px 0 0; margin-top:8px; padding:18px 16px 26px}
 
-    /* Totals (4 cards) */
     .totals{display:grid; grid-template-columns:repeat(4,1fr); gap:12px}
     @media (max-width:1100px){.totals{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:640px){.totals{grid-template-columns:1fr}}
@@ -57,17 +53,14 @@
     .value{font-size:18px; font-weight:800}
     .mono{font-feature-settings:"tnum" 1,"lnum" 1}
 
-    /* Columns for pending lists */
     .cols{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:18px}
     @media (max-width:980px){.cols{grid-template-columns:1fr}}
 
-    /* Panel container */
     .panel{border:1px solid var(--border); background:#fff; border-radius:16px; box-shadow:var(--shadow); overflow:hidden}
     .panel header{all:unset; display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:#f9fafb; border-bottom:1px solid #f1f5f9}
     .panel h2{font-size:15px; margin:0; font-weight:800}
     .hint{color:var(--muted); font-size:12px}
 
-    /* Card list (not tables) */
     .list{display:grid; gap:12px; padding:12px 12px 16px}
     .card-item{
       border:1px solid var(--border); background:var(--card); border-radius:14px; padding:12px;
@@ -91,7 +84,6 @@
     .approve{background:var(--success-bg); color:var(--success); border:1px solid var(--success-br)}
     .reject{background:var(--danger-bg); color:var(--danger); border:1px solid var(--danger-br)}
 
-    /* Skeleton */
     .skeleton{background:linear-gradient(90deg,#f3f4f6 25%,#eceef2 37%,#f3f4f6 63%); background-size:400% 100%; animation:sh 1.2s infinite}
     @keyframes sh{0%{background-position:100% 0}100%{background-position:0 0}}
   </style>
@@ -132,9 +124,8 @@
       </div>
     </section>
 
-    <!-- PENDING LISTS (cards) -->
+    <!-- PENDING LISTS -->
     <section class="cols">
-      <!-- Deposits -->
       <div class="panel">
         <header>
           <h2>Pending Deposits</h2>
@@ -146,7 +137,6 @@
         </div>
       </div>
 
-      <!-- Withdrawals -->
       <div class="panel">
         <header>
           <h2>Pending Withdrawals</h2>
@@ -169,7 +159,7 @@
       query, where, serverTimestamp, increment
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // Firebase config (same project)
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
       authDomain: "sonicearn-a13b3.firebaseapp.com",
@@ -185,7 +175,7 @@
     const db = getFirestore(app);
 
     // Constants
-    const DAILY_RATE = 0.15;
+    const DAILY_RATE = 0.15;     // admin investments daily rate
     const INVEST_DAYS = 30;
 
     // Helpers
@@ -193,12 +183,12 @@
     const fmtRatio = (n) => isFinite(n) ? (Math.round(n*100)/100).toString() : '∞';
     function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
 
-    // User cache
+    // Simple user cache
     const userCache = new Map();
     async function getUser(userId){
       if(userCache.has(userId)) return userCache.get(userId);
       const snap = await getDoc(doc(db,'users',userId));
-      const data = snap.exists() ? snap.data() : null;
+      const data = snap.exists() ? { id:snap.id, ...snap.data() } : null;
       userCache.set(userId,data);
       return data;
     }
@@ -211,7 +201,7 @@
       return res;
     }
 
-    // Totals & derived KPIs
+    // KPI tiles
     async function loadTotals(){
       let depSum=0, wdSum=0;
 
@@ -231,7 +221,7 @@
       setText('profitRatio', fmtRatio(ratio));
     }
 
-    // Pending Deposits (cards)
+    // Pending Deposits UI
     async function loadPendingDeposits(){
       const wrap = document.getElementById('depList');
       wrap.innerHTML = '<div class="card-item skeleton" style="height:56px;border-radius:12px"></div>';
@@ -276,7 +266,7 @@
       `).join('');
     }
 
-    // Pending Withdrawals (cards)
+    // Pending Withdrawals UI
     async function loadPendingWithdrawals(){
       const wrap = document.getElementById('wdList');
       wrap.innerHTML = '<div class="card-item skeleton" style="height:56px;border-radius:12px"></div>';
@@ -288,7 +278,8 @@
         const amt = Number(x.amount||0), net = Math.max(0, amt*0.9);
         items.push({
           id:d.id, userId:x.userId, userName:u?.name || '(no name)',
-          amount:amt, net:net, status:x.status||'pending'
+          amount:amt, net:net, status:x.status||'pending',
+          receiverName: x.receiverName || '', receiverPhone: x.receiverPhone || ''
         });
       }
       shuffle(items);
@@ -302,6 +293,7 @@
             <div class="row">
               <span class="chip mono">Amount: UGX ${fmt(x.amount)}</span>
               <span class="chip mono">Net (−10%): UGX ${fmt(x.net)}</span>
+              <span class="chip">To: ${x.receiverName} • ${x.receiverPhone}</span>
             </div>
           </div>
           <div style="display:flex; flex-direction:column; gap:8px; align-items:end">
@@ -315,7 +307,8 @@
       `).join('');
     }
 
-    // Actions
+    // --- Actions -------------------------------------------------------------
+
     async function approveDeposit(depId){
       const depRef = doc(db,'deposits',depId);
       const depSnap = await getDoc(depRef);
@@ -340,7 +333,7 @@
         createdAt: serverTimestamp()
       });
 
-      // 2) award referrer 15% by referrerNickname -> users.nicknameLower
+      // 2) award referrer 15%
       const refNickLower = (user?.referrerNickname || '').toLowerCase();
       if(refNickLower){
         const refUser = await findUserByNicknameLower(refNickLower);
@@ -350,14 +343,14 @@
             accountBalance: increment(bonus),
             totalEarnings: increment(bonus)
           });
+          // update cache
+          userCache.set(refUser.id, { ...refUser, accountBalance: (refUser.accountBalance||0)+bonus, totalEarnings:(refUser.totalEarnings||0)+bonus });
         }
       }
 
-      // 3) mark deposit approved + add to depositor totals
+      // 3) mark deposit approved + bump depositor totals
       await updateDoc(depRef, { status: 'approved' });
-      if(user){
-        await updateDoc(doc(db,'users', dep.userId), { totalDeposits: increment(amount) });
-      }
+      await updateDoc(doc(db,'users', dep.userId), { totalDeposits: increment(amount) });
 
       alert("Deposit approved: investment created, referrer awarded (if any).");
       await Promise.all([loadPendingDeposits(), loadTotals()]);
@@ -372,22 +365,51 @@
       await loadPendingDeposits();
     }
 
+    // ✅ APPROVE WITHDRAWAL → mark approved AND increment user's totalWithdrawn
     async function approveWithdrawal(wdId){
       const wdRef = doc(db,'withdrawals',wdId);
       const wdSnap = await getDoc(wdRef);
       if(!wdSnap.exists()){ alert("Withdrawal not found."); return; }
-      if(wdSnap.data().status !== 'pending'){ alert("Already processed."); return; }
+      const wd = wdSnap.data();
+      if(wd.status !== 'pending'){ alert("Already processed."); return; }
+
+      const amount = Number(wd.amount || 0);
+
+      // 1) Mark approved
       await updateDoc(wdRef, { status: 'approved' });
+
+      // 2) Increment user's totalWithdrawn (balance was already deducted on request)
+      if(wd.userId){
+        await updateDoc(doc(db,'users', wd.userId), {
+          totalWithdrawn: increment(amount)
+        });
+      }
+
       alert("Withdrawal approved.");
       await Promise.all([loadPendingWithdrawals(), loadTotals()]);
     }
 
+    // ❌ REJECT WITHDRAWAL → mark rejected AND refund balance
     async function rejectWithdrawal(wdId){
       const wdRef = doc(db,'withdrawals',wdId);
       const wdSnap = await getDoc(wdRef);
       if(!wdSnap.exists()){ alert("Withdrawal not found."); return; }
-      if(wdSnap.data().status !== 'pending'){ alert("Already processed."); return; }
+      const wd = wdSnap.data();
+      if(wd.status !== 'pending'){ alert("Already processed."); return; }
+
+      const amount = Number(wd.amount || 0);
+
+      // 1) Mark rejected
       await updateDoc(wdRef, { status: 'rejected' });
+
+      // 2) Refund the amount to user's balance (it was reserved at request time)
+      if(wd.userId){
+        await updateDoc(doc(db,'users', wd.userId), {
+          accountBalance: increment(amount)
+        });
+      }
+
+      alert("Withdrawal rejected and amount refunded to user balance.");
       await loadPendingWithdrawals();
     }
 
@@ -403,7 +425,7 @@
       if(act==='reject-wd')   rejectWithdrawal(id).catch(err=>alert(err.message));
     });
 
-    // Auth (add your own admin flag check if needed)
+    // Auth gate (add your own isAdmin flag if needed)
     onAuthStateChanged(auth, async (user)=>{
       if(!user){ location.href='login.html'; return; }
       await Promise.all([
