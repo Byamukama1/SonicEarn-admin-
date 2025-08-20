@@ -2,111 +2,177 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Admin Login - SonicEarn</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Success Pay Investments - Login</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f0f2f5;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
+    :root{
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --ink:#0b1324;
+      --muted:#64748b;
+      --border:#e5e7eb;
+      --accent:#6d28d9;   /* purple like your sample */
+      --accent2:#4f46e5;  /* blue/purple blend for gradient */
+      --shadow:0 20px 60px rgba(2,6,23,.12);
     }
-    .login-box {
-      background: #fff;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 400px;
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#f8fafc 0%, #eef2ff 60%, #ffffff 100%);
+      display:flex;align-items:center;justify-content:center;
+      padding:24px;
+      font-family: system-ui,-apple-system,"Segoe UI",Roboto,Arial,"Noto Sans",sans-serif;
+      color:var(--ink);
     }
-    h2 {
-      text-align: center;
-      color: #2a8c4a;
-      margin-bottom: 20px;
+
+    /* Centered card like the screenshot */
+    .card{
+      width:100%;
+      max-width:520px;
+      background:var(--card);
+      border-radius:22px;
+      box-shadow: var(--shadow);
+      padding:26px 22px 22px;
     }
-    input {
-      width: 100%;
-      padding: 12px;
-      margin: 10px 0;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 16px;
+
+    .title{
+      text-align:center;
+      margin:6px 0 22px 0;
     }
-    button {
-      width: 100%;
-      padding: 12px;
-      background-color: #2a8c4a;
-      color: #fff;
-      border: none;
-      font-size: 16px;
-      border-radius: 8px;
-      cursor: pointer;
+    .title h1{
+      font-size:24px; font-weight:800; margin:0 0 6px 0; letter-spacing:.2px;
     }
-    .error {
-      color: red;
-      text-align: center;
-      margin-top: 10px;
+    .title p{
+      margin:0; color:var(--muted); font-size:14px;
+    }
+
+    form{display:grid; gap:16px; margin-top:10px;}
+    label{display:block; font-size:14px; font-weight:700; margin-bottom:6px;}
+    .input{
+      position:relative;
+    }
+    .input input{
+      width:100%;
+      padding:14px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      background:#f8fafc;
+      font-size:15px;
+      outline:none;
+    }
+    .input input:focus{
+      border-color:#c7d2fe;
+      box-shadow:0 0 0 4px rgba(79,70,229,.12);
+      background:#fff;
+    }
+    .toggle{
+      position:absolute; right:12px; top:50%; transform:translateY(-50%);
+      background:transparent; border:none; color:#9aa3b2; font-size:16px; cursor:pointer;
+    }
+
+.btn{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:16px;
+  font-weight:800;
+  letter-spacing:.2px;
+  color:#ffffff;  /* white text */
+  background:linear-gradient(135deg,#f59e0b,#d97706); /* amber gradient */
+  box-shadow:0 10px 24px rgba(217,119,6,.35); /* amber shadow */
+  cursor:pointer;
+}
+
+    .foot{
+      text-align:center; margin-top:14px; color:var(--muted); font-size:14px;
+    }
+    .foot a{ color:#4f46e5; font-weight:700; text-decoration:none; }
+
+    /* Tighten spacing on short screens */
+    @media (max-height: 640px){
+      .card{padding:20px 18px}
+      form{gap:12px}
+      .btn{padding:13px}
     }
   </style>
 </head>
 <body>
-  <div class="login-box">
-    <h2>Admin Login</h2>
-    <input type="email" id="email" placeholder="Email" required />
-    <input type="password" id="password" placeholder="Password" required />
-    <button id="loginBtn">Login</button>
-    <div class="error" id="errorMsg"></div>
+  <div class="card">
+    <div class="title">
+      <h1>Log into Success Pay</h1>
+      <p>Enter your credentials to continue</p>
+    </div>
+
+    <form id="loginForm" autocomplete="on">
+      <div>
+        <label for="email">Email</label>
+        <div class="input">
+          <input type="email" id="email" placeholder="Enter your email" required>
+        </div>
+      </div>
+
+      <div>
+        <label for="password">Password</label>
+        <div class="input">
+          <input type="password" id="password" placeholder="Enter your password" required>
+          <button type="button" id="togglePassword" class="toggle" aria-label="Show/Hide password">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <button type="button" class="btn" onclick="login()">
+        Login
+      </button>
+    </form>
+
+    <div class="foot">
+      Don’t have an account? <a href="signup.html">Sign Up</a>
+    </div>
   </div>
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
-
+  <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
+    // Same Firebase project
     const firebaseConfig = {
       apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
       authDomain: "sonicearn-a13b3.firebaseapp.com",
       projectId: "sonicearn-a13b3",
-      storageBucket: "sonicearn-a13b3.appspot.com",
+      storageBucket: "sonicearn-a13b3.firebasestorage.app",
       messagingSenderId: "538538743721",
-      appId: "1:538538743721:web:3ca577a8b2a6ba43e416b8"
+      appId: "1:538538743721:web:3ca577a8b2a6ba43e416b8",
+      measurementId: "G-XGD292PMYM"
     };
-
-    const allowedEmails = [
-      "hacksmediasilver@gmail.com",
-      "emillymbabazi3@gmail.com",
-      "byamukamambabazimentor2@gmail.com"
-    ];
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
 
-    const loginBtn = document.getElementById("loginBtn");
-    const errorMsg = document.getElementById("errorMsg");
+    // Toggle password
+    document.getElementById('togglePassword').addEventListener('click', function(){
+      const input = document.getElementById('password');
+      const isPw = input.type === 'password';
+      input.type = isPw ? 'text' : 'password';
+      this.querySelector('i').classList.toggle('fa-eye');
+      this.querySelector('i').classList.toggle('fa-eye-slash');
+    });
 
-    loginBtn.addEventListener("click", async () => {
+    // Login
+    window.login = async function(){
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
-
-      if (!allowedEmails.includes(email)) {
-        errorMsg.textContent = "Access denied: Unauthorized admin email.";
-        return;
-      }
-
-      try {
+      if(!email || !password){ alert("Fill in all fields."); return; }
+      try{
         await signInWithEmailAndPassword(auth, email, password);
-        window.location.href = "index.html"; // your admin dashboard
-      } catch (error) {
-        errorMsg.textContent = "Login failed: " + error.message;
+        window.location.href = "index.html";
+      }catch(err){
+        alert("Login failed: " + err.message);
       }
-    });
+    }
   </script>
 </body>
 </html>
