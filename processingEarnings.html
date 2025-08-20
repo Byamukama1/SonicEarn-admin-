@@ -13,6 +13,7 @@
       --shadow:0 16px 40px rgba(2,6,23,.10);
       --ok:#065f46; --ok-bg:#ecfdf5; --ok-br:#a7f3d0;
       --warn:#92400e; --warn-bg:#fff7ed; --warn-br:#fde68a;
+      --err:#991b1b; --err-bg:#fee2e2; --err-br:#fecaca;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -58,6 +59,7 @@
     }
     .ok{background:var(--ok-bg); color:var(--ok); border:1px solid var(--ok-br)}
     .skip{background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn-br)}
+    .err{background:var(--err-bg); color:var(--err); border:1px solid var(--err-br)}
     .mono{font-feature-settings:"tnum" 1,"lnum" 1}
   </style>
 </head>
@@ -67,7 +69,7 @@
       <i class="fas fa-coins"></i>
       <div>
         <h1>Process Earnings</h1>
-        <div class="status">Awards 15% daily earnings for investments that have passed 24h since last award.</div>
+        <div class="status">Awards <b>15%</b> of invested amount for each full 24h since <code>lastProcessedAt</code>.</div>
       </div>
     </div>
     <a class="link" href="admin-index.html"><i class="fas fa-arrow-left"></i> Back to Admin</a>
@@ -88,10 +90,11 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import {
-      getFirestore, collection, query, where, getDocs, doc, writeBatch, Timestamp
+      getFirestore, collection, query, where, getDocs, doc, writeBatch,
+      Timestamp, increment
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // SAME Firebase config
+    // Firebase (same project)
     const firebaseConfig = {
       apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
       authDomain: "sonicearn-a13b3.firebaseapp.com",
@@ -108,9 +111,9 @@
 
     const byId = id => document.getElementById(id);
     const fmt = n => new Intl.NumberFormat('en-UG',{maximumFractionDigits:0}).format(Math.round(n||0));
-    const ONE_DAY_MS = 24*60*60*1000;
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-    function logItem({title, detail, ok}){
+    function logLine(kind, title, detail){
       const el = document.createElement('div');
       el.className = 'log-item';
       el.innerHTML = `
@@ -118,227 +121,104 @@
           <div><strong>${title}</strong></div>
           <div class="status">${detail}</div>
         </div>
-        <div class="badge ${ok ? 'ok':'skip'}">${ok ? 'PAID' : 'SKIPPED'}</div>
+        <div class="badge ${kind}">${kind === 'ok' ? 'PAID' : kind === 'skip' ? 'SKIPPED' : 'ERROR'}</div>
       `;
       byId('log').prepend(el);
     }
 
-    async function processEarnings(){
+    async function runProcessing(){
       const btn = byId('processBtn');
       btn.disabled = true;
       byId('runStatus').textContent = 'Processing…';
       byId('summary').textContent = '';
       byId('log').innerHTML = '';
 
-      const now = Date.now();
+      const nowMs = Date.now();
 
-      // Get all ACTIVE investments (no inequality filter → no composite index required)
-      const invSnap = await getDocs(query(collection(db,'investments'), where('status','==','active')));
-
-      let checked = 0, paidCount = 0, paidTotal = 0;
-
-      // We’ll batch writes in chunks of <= 450 operations (safeguard under 500)
-      let batch = writeBatch(db);
-      let ops = 0;
-      async function commitBatchIfFull(force=false){
-        if(force || ops >= 450){
-          await batch.commit();
-          batch = writeBatch(db);
-          ops = 0;
-        }
-      }
-
-      for (const d of invSnap.docs){
-        checked++;
-        const inv = d.data();
-        const invRef = doc(db,'investments', d.id);
-
-        const amount = Number(inv.amount||0);
-        const dailyRate = Number(inv.dailyRate ?? 0.15);
-        const dailyEarning = Math.round(amount * dailyRate);
-        const remainingDays = Number(inv.remainingDays ?? 0);
-
-        // Determine the base time to compare: lastProcessedAt OR createdAt OR now
-        const lastTs = inv.lastProcessedAt?.toDate ? inv.lastProcessedAt.toDate().getTime()
-                       : inv.createdAt?.toDate ? inv.createdAt.toDate().getTime()
-                       : now;
-
-        // How many full 24h cycles elapsed since lastProcessedAt?
-        let cycles = Math.floor((now - lastTs) / ONE_DAY_MS);
-
-        // Respect remainingDays if present (>0)
-        if (remainingDays > 0) cycles = Math.min(cycles, remainingDays);
-
-        if (cycles > 0){
-          const award = dailyEarning * cycles;
-
-          // Update investment doc
-          const newRemaining = Math.max(0, remainingDays > 0 ? remainingDays - cycles : remainingDays);
-          const finished = newRemaining === 0 && remainingDays > 0;
-          // set lastProcessedAt to lastTs + cycles*24h to keep exact cadence
-          const newLast = new Date(lastTs + cycles*ONE_DAY_MS);
-
-          batch.update(invRef, {
-            totalEarned: (Number(inv.totalEarned||0) + award),
-            remainingDays: newRemaining,
-            lastProcessedAt: Timestamp.fromDate(newLast),
-            ...(finished ? { status: 'completed' } : {})
-          });
-          ops++;
-
-          // Update user account balance & totalEarnings
-          if (inv.userId){
-            const userRef = doc(db,'users', String(inv.userId));
-            batch.update(userRef, {
-              accountBalance: (Number(inv.userBalancePlaceholder||0)), // placeholder ignored by Firestore
-            });
-            // Use atomic increments by writing transforms: we can't here without increment(), but we avoided imports.
-          }
-
-          // Because we need atomic increments, do a micro-batch per award using FieldValue.increment:
-        }
-
-        // Because we need increments, we’ll switch to per-record small commits here:
-      }
-
-      // The loop above queued investment updates, but we still need to atomically increment user fields.
-      // We'll re-scan and pay using per-investment mini-batches to use increments safely.
-
-      // Reset log UI
-      byId('log').innerHTML = '';
-      checked = 0; paidCount = 0; paidTotal = 0;
-
-      for (const d of invSnap.docs){
-        checked++;
-        const inv = d.data();
-        const invRef = doc(db,'investments', d.id);
-
-        const amount = Number(inv.amount||0);
-        const dailyRate = Number(inv.dailyRate ?? 0.15);
-        const dailyEarning = Math.round(amount * dailyRate);
-        const remainingDays = Number(inv.remainingDays ?? 0);
-
-        const lastTs = inv.lastProcessedAt?.toDate ? inv.lastProcessedAt.toDate().getTime()
-                       : inv.createdAt?.toDate ? inv.createdAt.toDate().getTime()
-                       : now;
-
-        let cycles = Math.floor((now - lastTs) / ONE_DAY_MS);
-        if (remainingDays > 0) cycles = Math.min(cycles, remainingDays);
-
-        if (cycles <= 0){
-          logItem({
-            title:`${inv.userName || '(no name)'} — UGX ${fmt(amount)}`,
-            detail:`Skipped: less than 24h since last award.`,
-            ok:false
-          });
-          continue;
-        }
-
-        const award = dailyEarning * cycles;
-        const newRemaining = Math.max(0, remainingDays > 0 ? remainingDays - cycles : remainingDays);
-        const finished = newRemaining === 0 && remainingDays > 0;
-        const newLast = new Date(lastTs + cycles*ONE_DAY_MS);
-
-        // Do a small batch so we can use increment transforms
-        const mini = writeBatch(db);
-        mini.update(invRef, {
-          totalEarned: (Number(inv.totalEarned||0) + award),
-          remainingDays: newRemaining,
-          lastProcessedAt: Timestamp.fromDate(newLast),
-          ...(finished ? { status: 'completed' } : {})
-        });
-
-        // Use transforms for user increments
-        // (import FieldValue.increment alternative in v10 is to pass `increment` helper, but here we'll just re-import)
-      }
-
-    </script>
-
-  <!-- Re-open script to include increment helper cleanly -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import {
-      getFirestore, collection, query, where, getDocs, doc, writeBatch, Timestamp, increment
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyDqXsmhAt_jDRC3sYzSZ0mJXGLHoQYlPBc",
-      authDomain: "sonicearn-a13b3.firebaseapp.com",
-      projectId: "sonicearn-a13b3",
-      storageBucket: "sonicearn-a13b3.firebasestorage.app",
-      messagingSenderId: "538538743721",
-      appId: "1:538538743721:web:3ca577a8b2a6ba43e416b8",
-      measurementId: "G-XGD292PMYM"
-    };
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    const byId = id => document.getElementById(id);
-    const fmt = n => new Intl.NumberFormat('en-UG',{maximumFractionDigits:0}).format(Math.round(n||0));
-    const ONE_DAY_MS = 24*60*60*1000;
-
-    async function run(){
-      const btn = byId('processBtn');
-      btn.disabled = true;
-      byId('runStatus').textContent = 'Processing…';
-      byId('summary').textContent = '';
-      byId('log').innerHTML = '';
-
-      const now = Date.now();
+      // Fetch all active investments
       const invSnap = await getDocs(query(collection(db,'investments'), where('status','==','active')));
 
       let checked = 0, paid = 0, totalPaid = 0;
 
       for (const d of invSnap.docs){
         checked++;
-        const inv = d.data();
-        const invRef = doc(db,'investments', d.id);
+        try{
+          const inv = d.data();
+          const invRef = doc(db,'investments', d.id);
 
-        const amount = Number(inv.amount||0);
-        const rate = Number(inv.dailyRate ?? 0.15);
-        const dailyEarning = Math.round(amount * rate);
-        const remainingDays = Number(inv.remainingDays ?? 0);
+          const amount = Number(inv.amount || 0);
+          const rate = Number(inv.dailyRate ?? 0.15);         // default 15%
+          const daily = Math.round(amount * rate);            // 15% of invested amount
+          const remainingDays = Number(inv.remainingDays ?? 0);
 
-        const lastTs = inv.lastProcessedAt?.toDate ? inv.lastProcessedAt.toDate().getTime()
-                       : inv.createdAt?.toDate ? inv.createdAt.toDate().getTime()
-                       : now;
+          const createdMs = inv.createdAt?.toDate ? inv.createdAt.toDate().getTime() : nowMs;
 
-        let cycles = Math.floor((now - lastTs)/ONE_DAY_MS);
-        if (remainingDays > 0) cycles = Math.min(cycles, remainingDays);
+          // Base reference time: lastProcessedAt if available; else createdAt; else now
+          const baseMs = inv.lastProcessedAt?.toDate
+              ? inv.lastProcessedAt.toDate().getTime()
+              : createdMs;
 
-        if (cycles <= 0){
-          appendLog(inv, amount, 0, 'Skipped: less than 24h since last award.');
-          continue;
-        }
+          // Full 24h cycles elapsed since base
+          let cycles = Math.floor((nowMs - baseMs) / ONE_DAY_MS);
 
-        const award = dailyEarning * cycles;
-        const newRemaining = Math.max(0, remainingDays > 0 ? remainingDays - cycles : remainingDays);
-        const finished = newRemaining === 0 && remainingDays > 0;
-        const newLast = new Date(lastTs + cycles*ONE_DAY_MS);
+          // Respect remainingDays (if it exists and > 0)
+          if (remainingDays > 0) cycles = Math.min(cycles, remainingDays);
 
-        const batch = writeBatch(db);
-        // investment updates
-        batch.update(invRef, {
-          totalEarned: (Number(inv.totalEarned||0) + award),
-          remainingDays: newRemaining,
-          lastProcessedAt: Timestamp.fromDate(newLast),
-          ...(finished ? { status: 'completed' } : {})
-        });
-        // user balance + totalEarnings
-        if(inv.userId){
-          const userRef = doc(db,'users', String(inv.userId));
-          batch.update(userRef, {
-            accountBalance: increment(award),
-            totalEarnings:  increment(award)
+          // If no cycles but lastProcessedAt missing, initialize it (no payment today)
+          if (cycles <= 0){
+            if (!inv.lastProcessedAt){
+              const initTs = Timestamp.fromMillis(baseMs);
+              await writeBatch(db).update(invRef, { lastProcessedAt: initTs }).commit();
+              logLine('skip',
+                `${inv.userName || '(no name)'} — UGX ${fmt(amount)}`,
+                `Initialized lastProcessedAt; wait 24h for first payout.`
+              );
+            }else{
+              logLine('skip',
+                `${inv.userName || '(no name)'} — UGX ${fmt(amount)}`,
+                `Less than 24h since lastProcessedAt.`
+              );
+            }
+            continue;
+          }
+
+          // Compute award for the number of full cycles
+          const award = daily * cycles;
+          const newRemaining = Math.max(0, remainingDays > 0 ? remainingDays - cycles : remainingDays);
+
+          // Advance lastProcessedAt by exactly 'cycles' days to keep cadence aligned
+          const newLastProcessedAt = Timestamp.fromMillis(baseMs + (cycles * ONE_DAY_MS));
+
+          const finished = newRemaining === 0 && remainingDays > 0;
+
+          // Atomic updates in a single batch
+          const batch = writeBatch(db);
+          batch.update(invRef, {
+            totalEarned: (Number(inv.totalEarned || 0) + award),
+            remainingDays: newRemaining,
+            lastProcessedAt: newLastProcessedAt,
+            ...(finished ? { status: 'completed' } : {})
           });
-        }
-        await batch.commit();
 
-        paid++;
-        totalPaid += award;
-        appendLog(inv, amount, award, finished ? 'Paid and completed.' : `Paid ${cycles} day(s).`);
+          if (inv.userId){
+            const userRef = doc(db,'users', String(inv.userId));
+            batch.update(userRef, {
+              accountBalance: increment(award),
+              totalEarnings:  increment(award)
+            });
+          }
+
+          await batch.commit();
+
+          paid++;
+          totalPaid += award;
+          logLine('ok',
+            `${inv.userName || '(no name)'} — UGX ${fmt(amount)}`,
+            `Paid UGX ${fmt(award)} for ${cycles} day(s). ${finished ? 'Plan completed.' : ''}`
+          );
+        }catch(err){
+          logLine('err','Error processing investment', err.message || String(err));
+        }
       }
 
       byId('runStatus').textContent = 'Done.';
@@ -346,26 +226,15 @@
       byId('processBtn').disabled = false;
     }
 
-    function appendLog(inv, amount, award, note){
-      const el = document.createElement('div');
-      el.className = 'log-item';
-      el.innerHTML = `
-        <div>
-          <div><strong>${inv.userName || '(no name)'} — UGX ${fmt(amount||0)}</strong></div>
-          <div class="status">${note}</div>
-        </div>
-        <div class="badge ${award>0?'ok':'skip'}">${award>0 ? 'PAID UGX '+fmt(award) : 'SKIPPED'}</div>
-      `;
-      byId('log').prepend(el);
-    }
-
     onAuthStateChanged(auth, (user)=>{
       if(!user){ location.href='login.html'; return; }
-      byId('processBtn').addEventListener('click', ()=> run().catch(err=>{
-        byId('runStatus').textContent = 'Error.';
-        alert(err.message);
-        byId('processBtn').disabled = false;
-      }));
+      byId('processBtn').addEventListener('click', ()=>{
+        runProcessing().catch(err=>{
+          byId('runStatus').textContent = 'Error.';
+          alert(err.message || err);
+          byId('processBtn').disabled = false;
+        });
+      });
     });
   </script>
 </body>
